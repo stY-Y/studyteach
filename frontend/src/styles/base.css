@@ -1,0 +1,300 @@
+/* ============================================================
+   轻量设计系统（扁平 · 无阴影 · 无渐变 · 无 UI 框架）
+   设计目标：乡村老旧手机 / 低配校园电脑上内存占用与绘制开销最低。
+   要点：
+     - 一律用 1px 边框代替 box-shadow（阴影会触发额外的绘制与合成层）
+     - 只用 background / border-color / color 做过渡（GPU 开销极低）
+     - 不做圆角阴影卡片堆叠、不做毛玻璃、不做装饰性动画
+     - 保留大字号与 ≥44px 点击区域（低数字素养用户可用性不能牺牲）
+   ============================================================ */
+:root {
+  --c-primary: #2563eb;
+  --c-primary-dark: #1d4ed8;
+  --c-primary-soft: #eff6ff;
+  --c-success: #15803d;
+  --c-warning: #b45309;
+  --c-danger: #b91c1c;
+
+  --c-text: #1f2937;
+  --c-text-soft: #6b7280;
+  --c-text-faint: #9ca3af;
+
+  --c-border: #e5e7eb;
+  --c-border-strong: #d1d5db;
+  --c-bg: #f7f8fa;
+  --c-surface: #ffffff;
+
+  --radius: 8px;
+  --radius-sm: 6px;
+  --header-h: 52px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+  font-size: 16px; /* 基准字号偏大：适配乡村用户与老旧屏幕 */
+  line-height: 1.6;
+  color: var(--c-text);
+  background: var(--c-bg);
+  -webkit-text-size-adjust: 100%;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+h1, h2, h3 {
+  margin: 0;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: var(--c-primary);
+  text-decoration: none;
+}
+
+/* ---------- 布局工具 ---------- */
+.container {
+  width: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.spacer {
+  flex: 1;
+}
+
+/* 卡片栅格：手机 1 列 → 平板 2 列 → 桌面 3 列 */
+.grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 960px) {
+  .grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* ---------- 卡片（纯边框，无阴影） ---------- */
+.card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+
+/* ---------- 按钮 ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px; /* 大点击区域，适配低数字素养用户 */
+  padding: 0 16px;
+  font-size: 16px;
+  font-family: inherit;
+  font-weight: 500;
+  color: var(--c-text);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border-strong);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background-color 0.12s, border-color 0.12s;
+}
+
+.btn:hover:not(:disabled) {
+  border-color: var(--c-primary);
+  color: var(--c-primary);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--c-primary);
+  border-color: var(--c-primary);
+  color: #fff;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--c-primary-dark);
+  border-color: var(--c-primary-dark);
+  color: #fff;
+}
+
+.btn-block {
+  width: 100%;
+}
+
+.btn-sm {
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 14px;
+}
+
+/* ---------- 表单 ---------- */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.field-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--c-text-soft);
+}
+
+.input {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 12px;
+  font-size: 16px; /* ≥16px 可避免 iOS 聚焦时自动放大 */
+  font-family: inherit;
+  color: var(--c-text);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border-strong);
+  border-radius: var(--radius-sm);
+  outline: none;
+  transition: border-color 0.12s;
+}
+
+.input:focus {
+  border-color: var(--c-primary);
+}
+
+/* ---------- 提示条 ---------- */
+.alert {
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  border: 1px solid transparent;
+}
+
+.alert-danger {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: var(--c-danger);
+}
+
+.alert-warning {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: var(--c-warning);
+}
+
+.alert-info {
+  background: var(--c-primary-soft);
+  border-color: #bfdbfe;
+  color: var(--c-primary-dark);
+}
+
+.alert-success {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+  color: var(--c-success);
+}
+
+/* ---------- 徽标 ---------- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 4px;
+  background: #f3f4f6;
+  color: var(--c-text-soft);
+  white-space: nowrap;
+}
+
+.badge-primary {
+  background: var(--c-primary-soft);
+  color: var(--c-primary);
+}
+
+.badge-success {
+  background: #f0fdf4;
+  color: var(--c-success);
+}
+
+.badge-warning {
+  background: #fffbeb;
+  color: var(--c-warning);
+}
+
+.badge-danger {
+  background: #fef2f2;
+  color: var(--c-danger);
+}
+
+/* ---------- 文本工具 ---------- */
+.text-soft {
+  color: var(--c-text-soft);
+}
+
+.text-faint {
+  color: var(--c-text-faint);
+}
+
+.text-sm {
+  font-size: 14px;
+}
+
+.text-xs {
+  font-size: 12px;
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+
+.page-title {
+  font-size: 19px;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--c-text-soft);
+}

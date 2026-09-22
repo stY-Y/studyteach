@@ -1,0 +1,231 @@
+import {
+  AbilityRequirement,
+  DifficultyLevel,
+  QuestionType,
+  StudyStage,
+  Subject,
+} from '@teachstudy/shared';
+import { SeedQuestion } from './types';
+
+/** 初中数学扩充题目（二元一次方程组 / 不等式 / 因式分解 / 分式 / 一次函数 / 数据分析） */
+export const SEED_QUESTIONS_JUNIOR_MATH_EXTRA: SeedQuestion[] = [
+  // ---------- 二元一次方程组的解法 ----------
+  {
+    kpCodes: ['MATH-J-0501'], subject: Subject.MATH, stage: StudyStage.JUNIOR,
+    type: QuestionType.FILL_BLANK, difficulty: DifficultyLevel.MEDIUM, ability: AbilityRequirement.APPLY,
+    content: '解方程组 x + y = 5，x - y = 1，则 x = ______',
+    answer: '3',
+    analysis: '两式相加得 2x = 6，故 x = 3；代回得 y = 2。',
+    typicalErrors: ['相加时符号处理错误'],
+  },
+  {
+    kpCodes: ['MATH-J-0501'], subject: Subject.MATH, stage: StudyStage.JUNIOR,
+    type: QuestionType.FILL_BLANK, difficulty: DifficultyLevel.MEDIUM, ability: AbilityRequirement.APPLY,
+    content: '解方程组 2x + y = 7，x - y = 2，则 y = ______',
+    answer: '1',
+    analysis: '由 x - y = 2 得 y = x - 2，代入得 2x + x - 2 = 7，解得 x = 3，故 y = 1。',
+    typicalErrors: ['代入时漏乘系数'],
+  },
+  {
+    kpCodes: ['MATH-J-0502'], subject: Subject.MATH, stage: StudyStage.JUNIOR,
+    type: QuestionType.SHORT_ANSWER, difficulty: DifficultyLevel.HARD, ability: AbilityRequirement.ANALYZE,
+    content: '笼子里有鸡和兔共 10 只，它们共有 28 条腿。问鸡和兔各有多少只？',
+    answer: '鸡 6 只，兔 4 只',
+    analysis: '设鸡 x 只、兔 y 只，列方程组 x + y = 10，2x + 4y = 28。解得 x = 6，y = 4。',
+    typicalErrors: ['腿数方程写成 2x + 4y = 10', '解出后忘记回答两个量'],
+  },
+
+  // ---------- 一元一次不等式 ----------
+  {
+    kpCodes: ['MATH-J-0601'], subject: Subject.MATH, stage: StudyStage.JUNIOR,
+    type: QuestionType.FILL_BLANK, difficulty: DifficultyLevel.MEDIUM, ability: AbilityRequirement.APPLY,
+    content: '解不等式 2x - 3 > 5，解集是 x > ______',
+    answer: '4',
+    analysis: '移项得 2x > 8，两边除以 2（正数，不等号方向不变）得 x > 4。',
+    typicalErrors: ['移项忘记变号'],
+  },
+  {
+    kpCodes: ['MATH-J-0601'], subject: Subject.MATH, stage: StudyStage.JUNIOR,
+    type: QuestionType.FILL_BLANK, difficulty: DifficultyLevel.HARD, ability: AbilityRequirement.ANALYZE,
+    content: '解不等式 -2x > 6，解集是 x < ______',
+    answer: '-3',
+    analysis: '两边同除以 -2，不等号方向改变，得 x < -3。',
+    typicalErrors: ['除以负数时忘记改变不等号方向（最高频错误）'],
+  },
+  {
+    kpCodes: ['MATH-J-0602'], subject: Subject.MATH, stage: StudyStage.JUNIOR,
+    type: QuestionType.SINGLE_CHOICE, difficulty: DifficultyLevel.HARD, ability: AbilityRequirement.ANALYZE,
+    content: '不等式组 x ≥ 2 且 x < 5 的整数解共有（  ）',
+    options: ['A. 2 个', 'B. 3 个', 'C. 4 个', 'D. 无数个'],
+    answer: 'B',
+    analysis: '解集为 2 ≤ x < 5，整数解为 2、3、4，共 3 个。',
+    typicalErrors: ['把 5 也算作整数解（边界开闭判断错误）'],
+  },
+
+  // ---------- 因式分解 ----------
+  {
+    kpCodes: ['MATH-J-0701'], subject: Subject.MATH, stage: StudyStage.JUNIOR,
+    type: QuestionType.FILL_BLANK, difficulty: DifficultyLevel.MEDIUM, ability: AbilityRequirement.APPLY,
+    content: '分解因式：6a²b - 3ab = ______',
+    answer: '3ab(2a - 1)',
+    analysis: '提取公因式 3ab，得 3ab(2a - 1)。',
+    typicalErrors: ['提公因式不彻底', '括号内漏掉 1'],
+  },
+  {
+    kpCodes: ['MATH-J-0702'], subject: Subject.MATH, stage: StudyStage.JUNIOR,
+    type: QuestionType.FILL_BLANK, difficulty: DifficultyLevel.MEDIUM, ability: AbilityRequirement.APPLY,
+    content: '分解因式：x² - 9 = ______',
+    answer: '(x + 3)(x - 3)',
+    analysis: '平方差公式 a² - b² = (a + b)(a - b)。',
+    typicalErrors: ['分解不彻底或写成 (x - 3)²'],
+  },
+  {
+    kpCodes: ['MATH-J-0702'], subject: Subject.MATH, stage: StudyStage.JUNIOR,
+    type: QuestionType.FILL_BLANK, difficulty: DifficultyLevel.MEDIUM, ability: AbilityRequirement.APPLY,
+    content: '分解因式：a² - 2ab + b² = ______',
+    answer: '(a - b)²',
+    analysis: '完全平方公式 a² - 2ab + b² = (a - b)²。',
+    typicalErrors: ['符号判断错误写成 (a + b)²'],
+  },
+  {
+    kpCodes: ['MATH-J-0702'], subject: Subject.MATH, stage: StudyStage.JUNIOR,
+    type: QuestionType.FILL_BLANK, difficulty: DifficultyLevel.HARD, ability: AbilityRequirement.APPLY,
+    content: '分解因式：x² + 6x + 9 = ______',
+    answer: '(x + 3)²',
+    analysis: '首尾平方项为 x² 与 9 = 3²，中间项 6x = 2·x·3，符合完全平方公式。',
+    typicalErrors: ['无法识别完全平方式，误写成 (x+9)(x+1)'],
+  },
+
+  // ---------- 分式 ----------
+  {
+    kpCodes: ['MATH-J-0801'], subject: Subject.MATH, stage: StudyStage.JUNIOR,
+    type: QuestionType.SINGLE_CHOICE, difficulty: DifficultyLevel.MEDIUM, ability: AbilityRequirement.UNDERSTAND,
+    content: '分式 1/(x - 3) 有意义的条件是（  ）',
+    options: ['A. x > 3', 'B. x < 3', 'C. x ≠ 3', 'D. x = 3'],
+    answer: 'C',
+    analysis: '分式有意义的条件是分母不为零，即 x - 3 ≠ 0。',
+    typicalErrors: ['误答 x > 3（与二次根式条件混淆）'],
+  },
+  {
+    kpCodes: ['MATH-J-0801'], subject: Subject.MATH, stage: StudyStage.JUNIOR,
+    type: QuestionType.FILL_BLANK, difficulty: DifficultyLevel.HARD, ability: AbilityRequirement.ANALYZE,
+    content: '约分：(x² - 1)/(x + 1) = ______（其中 x ≠ -1）',
+    answer: 'x - 1',
+    analysis: '分子分解因式得 (x + 1)(x - 1)，与分母约去 (x + 1)，结果为 x - 1。',
+    typicalErrors: ['直接约去 x² 与 x，得到错误结果'],
+  },
+  {
+    kpCodes: ['MATH-J-0802'], subject: Subject.MATH, stage: StudyStage.JUNIOR,
+    type: QuestionType.FILL_BLANK, difficulty: DifficultyLevel.MEDIUM, ability: AbilityRequirement.APPLY,
+    content: '计算：1/a + 1/b = ______（用含 a、b 的式子表示）',
+    answer: '(a + b)/(ab)',
+    analysis: '异分母分式相加先通分：b/(ab) + a/(ab) = (a + b)/(ab)。',
+    typicalErrors: ['分子分母直接相加'],
+  },
+  {
+    kpCodes: ['MATH-J-0802'], subject: Subject.MATH, stage: StudyStage.JUNIOR,
+    type: QuestionType.FILL_BLANK, difficulty: DifficultyLevel.MEDIUM, ability: AbilityRequirement.APPLY,
+    content: '计算：(2/x) × (x/4) = ______',
+    answer: '1/2',
+    analysis: '分子乘分子、分母乘分母得 2x/4x，约去 2x 得 1/2。',
+    typicalErrors: ['忘记约分'],
+  },
+
+  // ---------- 一次函数的图象与性质 ----------
+  {
+    kpCodes: ['MATH-J-0901'], subject: Subject.MATH, stage: StudyStage.JUNIOR,
+    type: QuestionType.SINGLE_CHOICE, difficulty: DifficultyLevel.MEDIUM, ability: AbilityRequirement.ANALYZE,
+    content: '一次函数 y = -3x + 2 中，y 随 x 的增大而（  ）',
+    options: ['A. 增大', 'B. 减小', 'C. 不变', 'D. 无法确定'],
+    answer: 'B',
+    analysis: '一次函数 y = kx + b 中，k = -3 < 0，故 y 随 x 增大而减小。',
+    typicalErrors: ['只看 b 的符号判断增减性'],
+  },
+  {
+    kpCodes: ['MATH-J-0901'], subject: Subject.MATH, stage: StudyStage.JUNIOR,
+    type: QuestionType.SINGLE_CHOICE, difficulty: DifficultyLevel.HARD, ability: AbilityRequirement.ANALYZE,
+    content: '若一次函数 y = kx + b 中 k > 0 且 b < 0，则它的图象经过（  ）',
+    options: ['A. 第一、二、三象限', 'B. 第一、三、四象限', 'C. 第一、二、四象限', 'D. 第二、三、四象限'],
+    answer: 'B',
+    analysis: 'k > 0 图象上升，b < 0 与 y 轴交于负半轴，故经过一、三、四象限。',
+    typicalErrors: ['只根据 k 判断，忽略 b 的影响'],
+  },
+  {
+    kpCodes: ['MATH-J-0901'], subject: Subject.MATH, stage: StudyStage.JUNIOR,
+    type: QuestionType.FILL_BLANK, difficulty: DifficultyLevel.MEDIUM, ability: AbilityRequirement.APPLY,
+    content: '直线 y = 2x + 4 与 y 轴的交点坐标是 ______',
+    answer: '(0, 4)',
+    analysis: '与 y 轴相交时 x = 0，代入得 y = 4。',
+    typicalErrors: ['与 x 轴交点混淆，误答 (-2, 0)'],
+  },
+  {
+    kpCodes: ['MATH-J-0902'], subject: Subject.MATH, stage: StudyStage.JUNIOR,
+    type: QuestionType.SHORT_ANSWER, difficulty: DifficultyLevel.MEDIUM, ability: AbilityRequirement.APPLY,
+    content: '某电话套餐月租 30 元，通话费每分钟 0.2 元。设通话 x 分钟，费用为 y 元，写出 y 与 x 的关系式，并求通话 100 分钟的费用。',
+    answer: 'y = 0.2x + 30；通话 100 分钟需 50 元',
+    analysis: '费用 = 月租 + 通话费，即 y = 0.2x + 30。当 x = 100 时 y = 0.2×100 + 30 = 50。',
+    typicalErrors: ['漏加月租', '把 0.2 与 30 的位置写反'],
+  },
+
+  // ---------- 数据的分析 ----------
+  {
+    kpCodes: ['MATH-J-1001'], subject: Subject.MATH, stage: StudyStage.JUNIOR,
+    type: QuestionType.FILL_BLANK, difficulty: DifficultyLevel.MEDIUM, ability: AbilityRequirement.APPLY,
+    content: '数据 3、5、5、7、10 的中位数是 ______',
+    answer: '5',
+    analysis: '数据已按从小到大排列，共 5 个数，中位数为第 3 个数 5。',
+    typicalErrors: ['未排序直接取中间位置'],
+  },
+  {
+    kpCodes: ['MATH-J-1001'], subject: Subject.MATH, stage: StudyStage.JUNIOR,
+    type: QuestionType.FILL_BLANK, difficulty: DifficultyLevel.EASY, ability: AbilityRequirement.MEMORY,
+    content: '数据 3、5、5、7、10 的众数是 ______',
+    answer: '5',
+    analysis: '众数是出现次数最多的数据，5 出现 2 次，次数最多。',
+    typicalErrors: ['与中位数混淆'],
+  },
+  {
+    kpCodes: ['MATH-J-1001'], subject: Subject.MATH, stage: StudyStage.JUNIOR,
+    type: QuestionType.SINGLE_CHOICE, difficulty: DifficultyLevel.MEDIUM, ability: AbilityRequirement.ANALYZE,
+    content: '一组数据 1、2、3、4、5 的平均数和中位数分别是（  ）',
+    options: ['A. 3 和 3', 'B. 3 和 2.5', 'C. 2.5 和 3', 'D. 3 和 4'],
+    answer: 'A',
+    analysis: '平均数 = (1+2+3+4+5) ÷ 5 = 3；中位数为第 3 个数 3。',
+    typicalErrors: ['偶数个数据求中位数的方法误用到奇数个'],
+  },
+  {
+    kpCodes: ['MATH-J-1002'], subject: Subject.MATH, stage: StudyStage.JUNIOR,
+    type: QuestionType.SINGLE_CHOICE, difficulty: DifficultyLevel.MEDIUM, ability: AbilityRequirement.UNDERSTAND,
+    content: '两组数据的平均数相同，若甲组方差小于乙组方差，则（  ）',
+    options: ['A. 甲组数据更稳定', 'B. 乙组数据更稳定', 'C. 两组一样稳定', 'D. 无法比较'],
+    answer: 'A',
+    analysis: '方差越小，数据的波动越小，越稳定。',
+    typicalErrors: ['误认为方差越大越稳定'],
+  },
+
+  // ---------- 综合巩固 ----------
+  {
+    kpCodes: ['MATH-J-0105'], subject: Subject.MATH, stage: StudyStage.JUNIOR,
+    type: QuestionType.FILL_BLANK, difficulty: DifficultyLevel.MEDIUM, ability: AbilityRequirement.APPLY,
+    content: '计算：(-3)² + (-2)³ = ______',
+    answer: '1',
+    analysis: '(-3)² = 9，(-2)³ = -8，故 9 + (-8) = 1。',
+    typicalErrors: ['(-3)² 误算为 -9'],
+  },
+  {
+    kpCodes: ['MATH-J-0202'], subject: Subject.MATH, stage: StudyStage.JUNIOR,
+    type: QuestionType.FILL_BLANK, difficulty: DifficultyLevel.MEDIUM, ability: AbilityRequirement.APPLY,
+    content: '化简：2(x + 3) - 3(x - 1) = ______',
+    answer: '-x + 9',
+    analysis: '去括号得 2x + 6 - 3x + 3，合并同类项得 -x + 9。',
+    typicalErrors: ['去括号时第二项漏变号'],
+  },
+  {
+    kpCodes: ['MATH-J-0303'], subject: Subject.MATH, stage: StudyStage.JUNIOR,
+    type: QuestionType.FILL_BLANK, difficulty: DifficultyLevel.HARD, ability: AbilityRequirement.APPLY,
+    content: '解方程：(x - 1)/2 = (x + 2)/3，则 x = ______',
+    answer: '7',
+    analysis: '两边同乘 6 去分母得 3(x - 1) = 2(x + 2)，即 3x - 3 = 2x + 4，解得 x = 7。',
+    typicalErrors: ['去分母时漏乘某一项'],
+  },
+];

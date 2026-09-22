@@ -1,0 +1,24 @@
+{
+  "name": "teachstudy",
+  "version": "0.1.0",
+  "private": true,
+  "description": "乡村公益助学平台 - 轻量端云一体架构（纯公益、免费开放、无广告、无付费墙）",
+  "license": "MIT",
+  "workspaces": [
+    "shared",
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "build:shared": "npm run build -w shared",
+    "dev:backend": "npm run start:dev -w backend",
+    "build:backend": "npm run build -w backend",
+    "start:backend": "npm run start:prod -w backend",
+    "build:all": "npm run build:shared && npm run build:backend && npm run build:frontend",
+    "dev:frontend": "npm run dev -w frontend",
+    "build:frontend": "npm run build -w frontend",
+    "test:frontend": "npm test -w frontend",
+    "ai:check": "npm run ai:check -w backend",
+    "seed": "npm run seed -w backend"
+  }
+}

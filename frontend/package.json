@@ -1,0 +1,26 @@
+{
+  "name": "@teachstudy/frontend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "乡村公益助学平台前端（PC 网页 + 手机 H5 响应式，轻量无重依赖）",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "vue-tsc --noEmit",
+    "test": "node tests/logic.test.mjs && node tests/component.test.mjs && node tests/http.test.mjs"
+  },
+  "dependencies": {
+    "pinia": "^2.2.6",
+    "vue": "^3.5.13",
+    "vue-router": "^4.4.5"
+  },
+  "devDependencies": {
+    "@teachstudy/shared": "*",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "typescript": "^5.4.5",
+    "vite": "^5.4.11",
+    "vue-tsc": "^2.1.10"
+  }
+}

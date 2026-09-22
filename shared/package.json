@@ -1,0 +1,18 @@
+{
+  "name": "@teachstudy/shared",
+  "version": "0.1.0",
+  "private": true,
+  "description": "前后端共享层：枚举、常量、接口契约",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}

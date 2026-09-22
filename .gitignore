@@ -1,0 +1,33 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+*.tsbuildinfo
+
+# environment
+.env
+.env.local
+.env.*.local
+
+# logs
+logs/
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# runtime generated uploads / storage
+backend/uploads/
+backend/storage/
+# npm cache (redirected into workspace for sandboxed installs)
+.npm-cache/
+
+# runtime sqlite database
+backend/data/
