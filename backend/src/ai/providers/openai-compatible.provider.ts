@@ -195,7 +195,7 @@ export class OpenAiCompatibleProvider implements AiProvider {
 /** 各能力系统提示词（要求只输出 JSON，保证可解析） */
 const PROMPTS = {
   DIAGNOSE: [
-    '你是乡村公益助学平台的 AI 学习诊断引擎。',
+    '你是青禾（乡村公益助学平台）的 AI 学习诊断引擎。',
     '根据学生的检测题作答，精准定位知识薄弱点，并生成个性化补漏学习路径。',
     '只输出 JSON，不要输出任何解释、Markdown 代码块以外的文字。',
     'JSON 结构：{"weakPoints":[{"knowledgePointId":"知识点ID","mastery":0.0到1.0之间的数字,"reason":"薄弱原因"}],"learningPath":["补漏步骤1","补漏步骤2"]}',

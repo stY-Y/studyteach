@@ -10,6 +10,17 @@ const auth = useAuthStore();
 
 const roleConfig = computed(() => (auth.user ? ROLE_CONFIG[auth.user.role] : null));
 
+/** 按时段问候，让工作台更有「家」的温度 */
+const greeting = computed(() => {
+  const h = new Date().getHours();
+  if (h < 6) return '夜深了';
+  if (h < 9) return '早上好';
+  if (h < 12) return '上午好';
+  if (h < 14) return '中午好';
+  if (h < 18) return '下午好';
+  return '晚上好';
+});
+
 type HealthState = 'checking' | 'ok' | 'fail';
 const health = ref<HealthState>('checking');
 const healthInfo = ref<HealthResult | null>(null);
@@ -45,11 +56,13 @@ onMounted(checkHealth);
     <!-- 角色信息 -->
     <section class="card head">
       <div class="head-text">
-        <h1 class="page-title">{{ roleConfig?.label }}工作台</h1>
+        <h1 class="page-title">{{ greeting }}，{{ roleConfig?.label }}工作台</h1>
         <p class="text-sm text-soft">{{ roleConfig?.tagline }}</p>
       </div>
       <span class="badge badge-primary">{{ auth.displayName }}</span>
     </section>
+
+    <p class="welcome-line">欢迎回来，{{ auth.displayName }}。今天也一起加油吧 ☀️</p>
 
     <!-- 后端连通性 -->
     <section class="card">
@@ -127,6 +140,12 @@ onMounted(checkHealth);
 .note {
   margin-top: 8px;
   line-height: 1.55;
+}
+
+.welcome-line {
+  font-size: 14px;
+  color: var(--c-text-soft);
+  padding: 0 4px;
 }
 
 .grid-gap {

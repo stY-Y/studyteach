@@ -2,7 +2,7 @@
   "name": "teachstudy",
   "version": "0.1.0",
   "private": true,
-  "description": "乡村公益助学平台 - 轻量端云一体架构（纯公益、免费开放、无广告、无付费墙）",
+  "description": "青禾 · 乡村公益助学平台（纯公益、免费开放、无广告、无付费墙）",
   "license": "MIT",
   "workspaces": [
     "shared",

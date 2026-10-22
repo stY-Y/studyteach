@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { UserRole } from '@teachstudy/shared';
+import BrandMark from '../components/BrandMark.vue';
 import { ROLE_CONFIG, ROLE_ENTRANCES } from '../config/modules';
 import { useAuthStore } from '../stores/auth';
 
@@ -60,9 +61,10 @@ async function onSubmit(): Promise<void> {
     <div class="login-box">
       <!-- 品牌区 -->
       <header class="brand-block">
-        <div class="brand-mark">书</div>
-        <h1 class="brand-title">乡村公益助学平台</h1>
-        <p class="brand-sub">纯公益 · 全免费 · 无广告 · 无付费解锁</p>
+        <BrandMark :size="56" class="brand-logo" />
+        <h1 class="brand-title">青禾</h1>
+        <p class="brand-sub">乡村公益助学 · 纯公益 · 全免费 · 无广告</p>
+        <p class="brand-warm">让每一个乡村孩子，都被好好点亮 🌱</p>
       </header>
 
       <!-- 四端入口 -->
@@ -165,17 +167,8 @@ async function onSubmit(): Promise<void> {
   text-align: center;
 }
 
-.brand-mark {
-  width: 52px;
-  height: 52px;
+.brand-logo {
   margin: 0 auto 10px;
-  display: grid;
-  place-items: center;
-  border-radius: 14px;
-  background: var(--c-primary);
-  color: #fff;
-  font-size: 24px;
-  font-weight: 700;
 }
 
 .brand-title {
@@ -186,6 +179,12 @@ async function onSubmit(): Promise<void> {
   margin-top: 5px;
   font-size: 13px;
   color: var(--c-text-soft);
+}
+
+.brand-warm {
+  margin-top: 6px;
+  font-size: 14px;
+  color: var(--c-primary-dark);
 }
 
 /* ---------- 四端入口 ---------- */
@@ -217,7 +216,7 @@ async function onSubmit(): Promise<void> {
 }
 
 .entrance:hover {
-  border-color: #c7d2fe;
+  border-color: #e8d3ab;
 }
 
 .entrance.active {
@@ -284,7 +283,7 @@ async function onSubmit(): Promise<void> {
   min-height: 40px;
   padding: 0 10px;
   font-family: inherit;
-  background: #f9fafb;
+  background: #f7f1e3;
   border: 1px solid var(--c-border);
   border-radius: var(--radius-sm);
   cursor: pointer;

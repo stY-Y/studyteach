@@ -2,7 +2,7 @@
   "name": "@teachstudy/backend",
   "version": "0.1.0",
   "private": true,
-  "description": "乡村公益助学平台后端（NestJS + TypeScript，轻量端云一体）",
+  "description": "青禾后端（NestJS + TypeScript，轻量端云一体）",
   "license": "MIT",
   "scripts": {
     "build": "nest build",

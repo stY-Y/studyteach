@@ -2,7 +2,7 @@
   "name": "@teachstudy/frontend",
   "version": "0.1.0",
   "private": true,
-  "description": "乡村公益助学平台前端（PC 网页 + 手机 H5 响应式，轻量无重依赖）",
+  "description": "青禾前端（PC 网页 + 手机 H5 响应式，轻量无重依赖）",
   "type": "module",
   "scripts": {
     "dev": "vite",

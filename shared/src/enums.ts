@@ -11,7 +11,7 @@ export enum UserRole {
   PARENT = 'parent',
 }
 
-/** 学段：小学高段 / 初中 / 高中 */
+/** 学段：小学 / 初中 / 高中 */
 export enum StudyStage {
   PRIMARY_HIGH = 'primary_high',
   JUNIOR = 'junior',

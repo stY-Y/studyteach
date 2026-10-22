@@ -1,31 +1,36 @@
 /* ============================================================
-   轻量设计系统（扁平 · 无阴影 · 无渐变 · 无 UI 框架）
-   设计目标：乡村老旧手机 / 低配校园电脑上内存占用与绘制开销最低。
+   轻量设计系统（温馨暖调 · 扁平 · 无阴影 · 无渐变 · 无 UI 框架）
+   设计目标：乡村老旧手机 / 低配校园电脑上内存占用与绘制开销最低，
+   同时呈现「温暖、亲切、有希望感」的公益助学氛围。
    要点：
      - 一律用 1px 边框代替 box-shadow（阴影会触发额外的绘制与合成层）
      - 只用 background / border-color / color 做过渡（GPU 开销极低）
      - 不做圆角阴影卡片堆叠、不做毛玻璃、不做装饰性动画
+     - 温馨感来自暖色相（奶油底 + 暖橙主色 + 棕灰文字）与稍大的圆角，而非昂贵特效
      - 保留大字号与 ≥44px 点击区域（低数字素养用户可用性不能牺牲）
    ============================================================ */
 :root {
-  --c-primary: #2563eb;
-  --c-primary-dark: #1d4ed8;
-  --c-primary-soft: #eff6ff;
-  --c-success: #15803d;
-  --c-warning: #b45309;
-  --c-danger: #b91c1c;
+  --c-primary: #d97706;
+  --c-primary-dark: #b45309;
+  --c-primary-soft: #faeed7;
+  /* 品牌标识专用绿：青禾的禾苗色，与暖橙主色形成「土地＋新苗」的搭配 */
+  --c-brand: #3f7d3a;
+  --c-brand-deep: #2f612c;
+  --c-success: #4a7c3f;
+  --c-warning: #92580a;
+  --c-danger: #bb4a3c;
 
-  --c-text: #1f2937;
-  --c-text-soft: #6b7280;
-  --c-text-faint: #9ca3af;
+  --c-text: #3a2f24;
+  --c-text-soft: #6e6152;
+  --c-text-faint: #a0917d;
 
-  --c-border: #e5e7eb;
-  --c-border-strong: #d1d5db;
-  --c-bg: #f7f8fa;
-  --c-surface: #ffffff;
+  --c-border: #e8ddc8;
+  --c-border-strong: #d6c5a8;
+  --c-bg: #faf4e9;
+  --c-surface: #fffdf7;
 
-  --radius: 8px;
-  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-sm: 7px;
   --header-h: 52px;
 }
 
@@ -119,6 +124,47 @@ a {
   padding: 14px;
 }
 
+/* ---------- 选择胶囊（学科/学段/题型等单选场景） ---------- */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 14px;
+  font-family: inherit;
+  font-size: 15px;
+  color: var(--c-text);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border-strong);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: border-color 0.12s, background-color 0.12s, color 0.12s;
+}
+
+.chip:hover {
+  border-color: var(--c-primary);
+  color: var(--c-primary);
+}
+
+.chip.active {
+  background: var(--c-primary-soft);
+  border-color: var(--c-primary);
+  color: var(--c-primary-dark);
+  font-weight: 600;
+}
+
+/* ---------- 空状态（配一句暖话，别让孩子挫败） ---------- */
+.empty {
+  padding: 22px 16px;
+  text-align: center;
+  color: var(--c-text-soft);
+  font-size: 14px;
+  background: var(--c-primary-soft);
+  border: 1px dashed var(--c-border-strong);
+  border-radius: var(--radius);
+  line-height: 1.7;
+}
+
 /* ---------- 按钮 ---------- */
 .btn {
   display: inline-flex;
@@ -210,26 +256,26 @@ a {
 }
 
 .alert-danger {
-  background: #fef2f2;
-  border-color: #fecaca;
+  background: #fbeceb;
+  border-color: #f0c4bb;
   color: var(--c-danger);
 }
 
 .alert-warning {
-  background: #fffbeb;
-  border-color: #fde68a;
+  background: #fcf3e0;
+  border-color: #ecd7ab;
   color: var(--c-warning);
 }
 
 .alert-info {
   background: var(--c-primary-soft);
-  border-color: #bfdbfe;
+  border-color: #eed7b5;
   color: var(--c-primary-dark);
 }
 
 .alert-success {
-  background: #f0fdf4;
-  border-color: #bbf7d0;
+  background: #eef6e6;
+  border-color: #c9e2b8;
   color: var(--c-success);
 }
 
@@ -242,28 +288,28 @@ a {
   font-size: 12px;
   font-weight: 500;
   border-radius: 4px;
-  background: #f3f4f6;
+  background: #f3ecdd;
   color: var(--c-text-soft);
   white-space: nowrap;
 }
 
 .badge-primary {
   background: var(--c-primary-soft);
-  color: var(--c-primary);
+  color: var(--c-primary-dark);
 }
 
 .badge-success {
-  background: #f0fdf4;
+  background: #eef6e6;
   color: var(--c-success);
 }
 
 .badge-warning {
-  background: #fffbeb;
+  background: #fcf3e0;
   color: var(--c-warning);
 }
 
 .badge-danger {
-  background: #fef2f2;
+  background: #fbeceb;
   color: var(--c-danger);
 }
 

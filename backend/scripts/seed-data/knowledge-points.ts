@@ -80,7 +80,7 @@ export const SEED_KNOWLEDGE_POINTS: SeedKnowledgePoint[] = [
   { code: 'PHYS-S-02', name: '力学', subject: Subject.PHYSICS, stage: StudyStage.SENIOR, order: 2 },
   { code: 'PHYS-S-0201', name: '牛顿运动定律', subject: Subject.PHYSICS, stage: StudyStage.SENIOR, parentCode: 'PHYS-S-02', order: 1 },
 
-  // ==================== 小学数学（小学高段） ====================
+  // ==================== 小学数学（小学） ====================
   { code: 'MATH-P-01', name: '数与代数', subject: Subject.MATH, stage: StudyStage.PRIMARY_HIGH, order: 1, description: '小数、分数、百分数、因数倍数与简易方程' },
   { code: 'MATH-P-0101', name: '小数的意义与性质', subject: Subject.MATH, stage: StudyStage.PRIMARY_HIGH, parentCode: 'MATH-P-01', order: 1 },
   { code: 'MATH-P-0102', name: '小数的四则运算', subject: Subject.MATH, stage: StudyStage.PRIMARY_HIGH, parentCode: 'MATH-P-01', order: 2 },
@@ -109,7 +109,7 @@ export const SEED_KNOWLEDGE_POINTS: SeedKnowledgePoint[] = [
   { code: 'MATH-P-0502', name: '工程问题', subject: Subject.MATH, stage: StudyStage.PRIMARY_HIGH, parentCode: 'MATH-P-05', order: 2 },
   { code: 'MATH-P-0503', name: '百分数应用题', subject: Subject.MATH, stage: StudyStage.PRIMARY_HIGH, parentCode: 'MATH-P-05', order: 3 },
 
-  // ==================== 小学英语（小学高段） ====================
+  // ==================== 小学英语（小学） ====================
   { code: 'ENG-P-01', name: '词汇', subject: Subject.ENGLISH, stage: StudyStage.PRIMARY_HIGH, order: 1 },
   { code: 'ENG-P-0101', name: '名词单复数', subject: Subject.ENGLISH, stage: StudyStage.PRIMARY_HIGH, parentCode: 'ENG-P-01', order: 1 },
   { code: 'ENG-P-0102', name: '数词', subject: Subject.ENGLISH, stage: StudyStage.PRIMARY_HIGH, parentCode: 'ENG-P-01', order: 2 },

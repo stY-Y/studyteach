@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Max, Min } from 'class-validator';
 import {
   ResourceScope,
   ResourceType,
@@ -26,6 +26,17 @@ export class UploadResourceDto {
   @ApiProperty({ enum: StudyStage })
   @IsEnum(StudyStage)
   stage: StudyStage;
+
+  @ApiPropertyOptional({
+    description: '年级：1-6 小学、7-9 初中、10-12 高中（高一/高二/高三）；留空表示跨年级通用',
+    minimum: 1,
+    maximum: 12,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(12)
+  grade?: number;
 
   @ApiPropertyOptional({ description: '知识点 id 的 JSON 数组字符串（留空则自动匹配）' })
   @IsOptional()
@@ -79,4 +90,11 @@ export class QueryResourceDto {
   @IsOptional()
   @IsEnum(StudyStage)
   stage?: StudyStage;
+
+  @ApiPropertyOptional({ description: '年级：1-6 小学、7-9 初中、10-12 高中', minimum: 1, maximum: 12 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(12)
+  grade?: number;
 }

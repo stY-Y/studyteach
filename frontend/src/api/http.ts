@@ -4,6 +4,9 @@ import { storage } from '../utils/storage';
 const API_BASE = (import.meta.env.VITE_API_BASE as string) || '/api/v1';
 const TOKEN_KEY = 'token';
 
+/** 供文件上传/下载等需要自定义 fetch 的场景复用 */
+export const API_BASE_URL = API_BASE;
+
 /** 后端统一响应结构（与 @teachstudy/shared 的 ApiResponse 一致） */
 interface ApiEnvelope<T> {
   code: number;

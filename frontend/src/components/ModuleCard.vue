@@ -49,7 +49,7 @@ function open(): void {
 }
 
 .module-card:active {
-  background: #fafafa;
+  background: #faf5ea;
 }
 
 .module-head {

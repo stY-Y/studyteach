@@ -7,7 +7,7 @@ import {
 } from '@teachstudy/shared';
 import { SeedQuestion } from './types';
 
-/** 小学英语（小学高段）种子题目 */
+/** 小学英语（小学）种子题目 */
 export const SEED_QUESTIONS_PRIMARY_ENGLISH: SeedQuestion[] = [
   // ---------- 名词单复数 ----------
   {

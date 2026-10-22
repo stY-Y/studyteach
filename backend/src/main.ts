@@ -44,7 +44,7 @@ async function bootstrap(): Promise<void> {
 
   // Swagger 接口文档
   const docConfig = new DocumentBuilder()
-    .setTitle('乡村公益助学平台 API')
+    .setTitle('青禾 API')
     .setDescription('纯公益服务 · 轻量端云一体 · 学生/教师/管理员/家长四端')
     .setVersion('0.1.0')
     .addBearerAuth()

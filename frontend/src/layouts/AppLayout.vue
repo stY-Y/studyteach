@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
+import BrandMark from '../components/BrandMark.vue';
 import { ROLE_CONFIG, type ModuleEntry } from '../config/modules';
 import { useAuthStore } from '../stores/auth';
 import { isOnline } from '../utils/offline';
@@ -32,10 +33,10 @@ function logout(): void {
     <header class="header">
       <div class="header-inner">
         <RouterLink :to="{ name: 'home' }" class="brand">
-          <span class="brand-mark">书</span>
+          <BrandMark :size="32" />
           <span class="brand-text">
-            <strong>乡村公益助学平台</strong>
-            <em>纯公益 · 全免费</em>
+            <strong>青禾</strong>
+            <em>乡村公益助学 · 纯公益</em>
           </span>
         </RouterLink>
 
@@ -124,19 +125,6 @@ function logout(): void {
   min-width: 0;
 }
 
-.brand-mark {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  flex: none;
-  border-radius: 8px;
-  background: var(--c-primary);
-  color: #fff;
-  font-size: 16px;
-  font-weight: 700;
-}
-
 .brand-text {
   display: flex;
   flex-direction: column;
@@ -202,7 +190,7 @@ function logout(): void {
 }
 
 .nav-item:hover {
-  background: #f3f4f6;
+  background: #f4ecdc;
   color: var(--c-text);
 }
 

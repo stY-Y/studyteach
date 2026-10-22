@@ -34,6 +34,10 @@ export class Resource {
   @Column({ type: 'varchar', length: 32 })
   stage: StudyStage;
 
+  /** 年级：1-6 小学，7-9 初中，10-12 高中（高一/高二/高三）；空表示跨年级通用 */
+  @Column({ type: 'int', nullable: true })
+  grade: number | null;
+
   /** 关联知识点 id（自动标签匹配 + 人工确认） */
   @Column({ name: 'knowledge_points', type: 'simple-json' })
   knowledgePoints: string[];

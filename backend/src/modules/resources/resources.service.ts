@@ -74,6 +74,7 @@ export class ResourcesService {
         type: dto.type,
         subject: dto.subject,
         stage: dto.stage,
+        grade: dto.grade ?? null,
         knowledgePoints,
         fileKey,
         fileSize: file.size,
@@ -93,6 +94,10 @@ export class ResourcesService {
     if (query.type) qb.andWhere('r.type = :type', { type: query.type });
     if (query.subject) qb.andWhere('r.subject = :subject', { subject: query.subject });
     if (query.stage) qb.andWhere('r.stage = :stage', { stage: query.stage });
+    // 年级：指定年级时，同时包含该年级资源与「跨年级通用」（grade 为空）的资源
+    if (query.grade) {
+      qb.andWhere('(r.grade = :grade OR r.grade IS NULL)', { grade: query.grade });
+    }
 
     // 开放权限：全平台共享 或 本校可见
     if (viewer.schoolId) {
@@ -171,6 +176,21 @@ export class ResourcesService {
   }
 
   /** 下载（全程免费），返回文件内容供控制器流式输出 */
+  /** 在线预览：点开即看，不计入下载量 */
+  async getPreview(id: string): Promise<{ filename: string; buffer: Buffer; mime: string }> {
+    const resource = await this.findById(id);
+    if (resource.status !== ResourceStatus.APPROVED) {
+      throw new BadRequestException('资源未审核通过，不可预览');
+    }
+    const buffer = this.storage.read(resource.fileKey);
+    return {
+      filename: `${resource.title}${resource.format}`,
+      buffer,
+      mime: this.mimeOf(resource.format),
+    };
+  }
+
+  /** 下载：累加下载量 */
   async getDownload(id: string): Promise<{ filename: string; buffer: Buffer; mime: string }> {
     const resource = await this.findById(id);
     if (resource.status !== ResourceStatus.APPROVED) {
@@ -185,16 +205,30 @@ export class ResourcesService {
   private mimeOf(format: string): string {
     const map: Record<string, string> = {
       '.mp4': 'video/mp4',
+      '.webm': 'video/webm',
       '.mp3': 'audio/mpeg',
+      '.m4a': 'audio/mp4',
+      '.wav': 'audio/wav',
       '.pdf': 'application/pdf',
       '.epub': 'application/epub+zip',
       '.doc': 'application/msword',
       '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      '.ppt': 'application/vnd.ms-powerpoint',
+      '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      '.md': 'text/markdown; charset=utf-8',
+      '.markdown': 'text/markdown; charset=utf-8',
+      '.txt': 'text/plain; charset=utf-8',
+      '.csv': 'text/csv; charset=utf-8',
+      '.json': 'application/json; charset=utf-8',
       '.png': 'image/png',
       '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.gif': 'image/gif',
+      '.webp': 'image/webp',
+      '.svg': 'image/svg+xml',
       '.zip': 'application/zip',
     };
-    return map[format] ?? 'application/octet-stream';
+    return map[format.toLowerCase()] ?? 'application/octet-stream';
   }
 
   // ---------- 离线缓存 ----------

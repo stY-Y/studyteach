@@ -135,7 +135,7 @@ function pointNames(item: ReviewItem): string {
 }
 
 .item.wrong {
-  border-color: #fecaca;
+  border-color: #f0c4bb;
 }
 
 .summary {
@@ -153,7 +153,7 @@ function pointNames(item: ReviewItem): string {
 }
 
 .summary:hover {
-  background: #fafbfc;
+  background: #faf6ec;
 }
 
 .mark {
@@ -223,17 +223,17 @@ function pointNames(item: ReviewItem): string {
   font-size: 15px;
   border: 1px solid var(--c-border);
   border-radius: var(--radius-sm);
-  background: #fafbfc;
+  background: #faf6ec;
 }
 
 .options li.correct {
-  border-color: #bbf7d0;
-  background: #f0fdf4;
+  border-color: #c9e2b8;
+  background: #eef6e6;
 }
 
 .options li.chosen:not(.correct) {
-  border-color: #fecaca;
-  background: #fef2f2;
+  border-color: #f0c4bb;
+  background: #fbeceb;
 }
 
 .opt-text {
@@ -248,12 +248,12 @@ function pointNames(item: ReviewItem): string {
 }
 
 .tag-ok {
-  background: #dcfce7;
+  background: #dcefd0;
   color: var(--c-success);
 }
 
 .tag-bad {
-  background: #fee2e2;
+  background: #f6d9d4;
   color: var(--c-danger);
 }
 

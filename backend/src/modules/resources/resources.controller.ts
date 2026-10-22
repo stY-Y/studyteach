@@ -80,6 +80,16 @@ export class ResourcesController {
     return this.resourcesService.upload(user, dto, file);
   }
 
+  @Get(':id/preview')
+  @ApiOperation({ summary: '在线预览资源（inline 返回，不计下载量）' })
+  async preview(@Param('id') id: string): Promise<StreamableFile> {
+    const { filename, buffer, mime } = await this.resourcesService.getPreview(id);
+    return new StreamableFile(buffer, {
+      type: mime,
+      disposition: `inline; filename*=UTF-8''${encodeURIComponent(filename)}`,
+    });
+  }
+
   @Get(':id/download')
   @ApiOperation({ summary: '下载资源（全程免费）' })
   async download(@Param('id') id: string): Promise<StreamableFile> {

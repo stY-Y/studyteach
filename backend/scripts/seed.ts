@@ -24,6 +24,9 @@ import { KnowledgePoint } from '../src/modules/knowledge/entities/knowledge-poin
 import { Question } from '../src/modules/questions/entities/question.entity';
 import { College } from '../src/modules/volunteer/entities/college.entity';
 import { EnrollmentPolicy } from '../src/modules/enrollment/entities/enrollment-policy.entity';
+import { Resource } from '../src/modules/resources/entities/resource.entity';
+import { StorageService } from '../src/infra/storage/storage.service';
+import { ResourceStatus } from '@teachstudy/shared';
 
 import {
   SEED_COLLEGES,
@@ -31,6 +34,7 @@ import {
   SEED_KNOWLEDGE_POINTS,
   SEED_PARENT_LINKS,
   SEED_QUESTIONS,
+  SEED_RESOURCES,
   SEED_SCHOOL_ID,
   SEED_USERS,
 } from './seed-data';
@@ -49,6 +53,8 @@ const stats = {
   linkInserted: 0,
   collegeUpserted: 0,
   enrollmentUpserted: 0,
+  resourceInserted: 0,
+  resourceSkipped: 0,
   skipped: 0,
 };
 
@@ -94,6 +100,7 @@ async function main(): Promise<void> {
     await seedColleges(ds);
     await seedEnrollment(ds);
     await seedUsers(app);
+    await seedResources(ds, app);
   } finally {
     await app.close();
   }
@@ -105,6 +112,7 @@ async function main(): Promise<void> {
   line('家校绑定', `新增 ${stats.linkInserted}`);
   line('院校', `写入 ${stats.collegeUpserted}`);
   line('升学数据', `写入 ${stats.enrollmentUpserted}`);
+  line('演示资源', `新增 ${stats.resourceInserted}${stats.resourceSkipped ? `（跳过 ${stats.resourceSkipped}）` : ''}`);
   line('跳过', `${stats.skipped} 项（已存在）`);
 
   if (stats.userInserted > 0) {
@@ -242,6 +250,52 @@ async function seedEnrollment(ds: DataSource): Promise<void> {
       await repo.save(repo.create(p));
     }
     stats.enrollmentUpserted += 1;
+  }
+}
+
+/**
+ * 演示资源：按标题幂等写入（72 份，覆盖小学 1-6 / 初中 7-9 / 高中 10-12 的对应学科）。
+ * 正文写入存储目录，资源状态直接为「已通过」，便于学生端立即体验下载与离线缓存。
+ */
+async function seedResources(ds: DataSource, app: INestApplicationContext): Promise<void> {
+  const repo = ds.getRepository(Resource);
+  const storage = app.get(StorageService);
+  const admin = await app.get(UsersService).findByUsername('admin');
+
+  if (!admin) {
+    console.log('  未找到 admin 账号，跳过演示资源播种\n');
+    return;
+  }
+
+  for (const r of SEED_RESOURCES) {
+    const exists = await repo.findOne({ where: { title: r.title } });
+    if (exists) {
+      stats.resourceSkipped += 1;
+      continue;
+    }
+
+    const buffer = Buffer.from(r.content, 'utf8');
+    const fileKey = storage.save(`seed/resources/${r.stage}-${r.grade}-${r.subject}.md`, buffer);
+
+    await repo.save(
+      repo.create({
+        title: r.title,
+        type: r.type,
+        subject: r.subject,
+        stage: r.stage,
+        grade: r.grade,
+        knowledgePoints: [],
+        fileKey,
+        fileSize: buffer.length,
+        format: '.md',
+        ownerId: admin.id,
+        schoolId: admin.schoolId ?? SEED_SCHOOL_ID,
+        scope: r.scope,
+        status: ResourceStatus.APPROVED,
+        downloads: 0,
+      }),
+    );
+    stats.resourceInserted += 1;
   }
 }
 

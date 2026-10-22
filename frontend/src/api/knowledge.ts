@@ -1,4 +1,4 @@
-import type { Subject } from '@teachstudy/shared';
+import type { StudyStage, Subject } from '@teachstudy/shared';
 import { http } from './http';
 
 export interface KnowledgePointItem {
@@ -12,9 +12,35 @@ export interface KnowledgePointItem {
   order: number;
 }
 
+/** 知识点树节点（GET /knowledge/tree 返回） */
+export interface KnowledgeNode extends KnowledgePointItem {
+  children: KnowledgeNode[];
+}
+
+export type CreateKnowledgeBody = {
+  code: string;
+  name: string;
+  subject: Subject;
+  stage?: StudyStage;
+  parentId?: string;
+  description?: string;
+  order?: number;
+};
+
 export const knowledgeApi = {
-  /** 知识点列表（公开接口，可离线缓存用于把 id 还原成名称） */
-  list: () => http.get<KnowledgePointItem[]>('/knowledge', { cache: true }),
+  /** 知识点列表（可按学科/学段过滤；公开接口，可离线缓存用于把 id 还原成名称） */
+  list: (query?: { subject?: Subject; stage?: StudyStage }) =>
+    http.get<KnowledgePointItem[]>('/knowledge', { query, cache: true }),
+
+  /** 知识点树（教师端/管理端查看与维护） */
+  tree: (subject?: Subject) =>
+    http.get<KnowledgeNode[]>('/knowledge/tree', {
+      query: subject ? { subject } : undefined,
+      cache: true,
+    }),
+
+  /** 新增知识点（教师 / 管理员） */
+  create: (body: CreateKnowledgeBody) => http.post<KnowledgePointItem>('/knowledge', body),
 };
 
 /** 由知识点列表构建 id → 名称 的映射 */

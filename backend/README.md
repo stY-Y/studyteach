@@ -1,4 +1,4 @@
-# backend（乡村公益助学平台后端）
+# backend（青禾后端）
 
 NestJS 10 + TypeScript + TypeORM，轻量端云一体架构。开发默认使用 `better-sqlite3`（零外部数据库依赖，适配低配/离线环境），生产可切换 MySQL/PostgreSQL。
 
@@ -75,7 +75,7 @@ npm run seed -- --force  # 清除种子题目后重新播种（用于刷新题�
 
 | 类别 | 内容 |
 | --- | --- |
-| 知识点 | 118 个，覆盖 小学高段 / 初中 / 高中 的 数学、英语、物理，按 `code` upsert 构成知识树 |
+| 知识点 | 118 个，覆盖 小学 / 初中 / 高中 的 数学、英语、物理，按 `code` upsert 构成知识树 |
 | 题目 | 187 道，绑定知识点，均标注「考查知识点 / 难度层级 / 能力要求 / 典型错因」四维 |
 | 演示账号 | 四端各一个：`admin` / `teacher` / `student` / `parent`（密码见播种脚本输出） |
 | 家校绑定 | 家长账号已绑定学生账号，可直接在家校互通模块查看学情 |
@@ -138,7 +138,7 @@ src/
 
 ## 学段隔离（重要）
 
-题目与知识点都带 `stage`（小学高段 / 初中 / 高中）字段。**抽题必须按学段过滤**，否则会把不同学段的题混进同一份诊断或试卷。
+题目与知识点都带 `stage`（小学 / 初中 / 高中）字段。**抽题必须按学段过滤**，否则会把不同学段的题混进同一份诊断或试卷。
 
 - `QuestionsService.pickByKnowledgePoints(subject, stage, kps, count)` 与 `pickQuestions({ subject, stage, ... })` 均强制按学段过滤
 - `POST /diagnosis/start` 与 `POST /papers/generate` 的 `stage` 为**必填**

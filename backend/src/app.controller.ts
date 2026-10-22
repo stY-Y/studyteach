@@ -17,7 +17,7 @@ export class AppController {
   @ApiOperation({ summary: '服务信息' })
   root() {
     return {
-      name: '乡村公益助学平台',
+      name: '青禾',
       motto: '纯公益 · 全免费 · 无广告 · 无付费墙',
       docs: '/docs',
     };

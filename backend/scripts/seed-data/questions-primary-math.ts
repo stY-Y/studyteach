@@ -7,7 +7,7 @@ import {
 } from '@teachstudy/shared';
 import { SeedQuestion } from './types';
 
-/** 小学数学（小学高段）种子题目 */
+/** 小学数学（小学）种子题目 */
 export const SEED_QUESTIONS_PRIMARY_MATH: SeedQuestion[] = [
   // ---------- 小数的意义与性质 ----------
   {

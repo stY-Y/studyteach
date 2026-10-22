@@ -3,6 +3,7 @@ export * from './knowledge-points';
 export * from './users';
 export * from './colleges';
 export * from './enrollment';
+export * from './resources';
 
 // 题库（按学段/学科分文件，便于维护与扩充）
 export * from './questions-primary-math';

@@ -39,6 +39,104 @@ const router = createRouter({
           meta: { title: '知识诊断', roles: [UserRole.STUDENT] },
         },
         {
+          // 学生端 · 智能批改（已实现界面）
+          path: 'grading',
+          name: 'grading',
+          component: () => import('../views/student/GradingView.vue'),
+          meta: { title: '智能批改', roles: [UserRole.STUDENT] },
+        },
+        {
+          // 学生端 · 我的学情（已实现界面）
+          path: 'reports',
+          name: 'reports',
+          component: () => import('../views/student/ReportsView.vue'),
+          meta: { title: '我的学情', roles: [UserRole.STUDENT] },
+        },
+        {
+          // 家长端 · 孩子学情（已实现界面，含学情报表）
+          path: 'children',
+          name: 'children',
+          component: () => import('../views/parent/ChildrenProgressView.vue'),
+          meta: { title: '孩子学情', roles: [UserRole.PARENT] },
+        },
+        {
+          // 家长端 · 绑定学生（已实现界面）
+          path: 'link',
+          name: 'link',
+          component: () => import('../views/parent/LinkChildView.vue'),
+          meta: { title: '绑定学生', roles: [UserRole.PARENT] },
+        },
+        {
+          // 共享 · 学习资源（学生端浏览下载；管理员资源总览）
+          path: 'resources',
+          name: 'resources',
+          component: () => import('../views/student/ResourcesView.vue'),
+          meta: { title: '学习资源', roles: [UserRole.STUDENT, UserRole.TEACHER, UserRole.ADMIN] },
+        },
+        {
+          // 教师端 · 我的资源（必须在 resources 之后声明，避免路径歧义）
+          path: 'resources/mine',
+          name: 'myResources',
+          component: () => import('../views/teacher/MyResourcesView.vue'),
+          meta: { title: '我的资源', roles: [UserRole.TEACHER, UserRole.ADMIN] },
+        },
+        {
+          // 学生端 · 离线缓存
+          path: 'offline',
+          name: 'offline',
+          component: () => import('../views/student/OfflineView.vue'),
+          meta: { title: '离线缓存', roles: [UserRole.STUDENT] },
+        },
+        {
+          // 学生端 · 志愿匹配
+          path: 'volunteer',
+          name: 'volunteer',
+          component: () => import('../views/student/VolunteerView.vue'),
+          meta: { title: '志愿匹配', roles: [UserRole.STUDENT] },
+        },
+        {
+          // 教师端 · 智能组卷
+          path: 'papers',
+          name: 'papers',
+          component: () => import('../views/teacher/PaperView.vue'),
+          meta: { title: '智能组卷', roles: [UserRole.TEACHER, UserRole.ADMIN] },
+        },
+        {
+          // 教师端 · 题库管理
+          path: 'questions',
+          name: 'questions',
+          component: () => import('../views/teacher/QuestionBankView.vue'),
+          meta: { title: '题库管理', roles: [UserRole.TEACHER, UserRole.ADMIN] },
+        },
+        {
+          // 教师端 · 资源上传
+          path: 'upload',
+          name: 'upload',
+          component: () => import('../views/teacher/ResourceUploadView.vue'),
+          meta: { title: '资源上传', roles: [UserRole.TEACHER, UserRole.ADMIN] },
+        },
+        {
+          // 教师/管理员共用 · 知识图谱（查看 + 新增）
+          path: 'knowledge',
+          name: 'knowledge',
+          component: () => import('../views/shared/KnowledgeTreeView.vue'),
+          meta: { title: '知识图谱', roles: [UserRole.TEACHER, UserRole.ADMIN] },
+        },
+        {
+          // 管理员 · 用户管理
+          path: 'users',
+          name: 'users',
+          component: () => import('../views/admin/UsersView.vue'),
+          meta: { title: '用户管理', roles: [UserRole.ADMIN] },
+        },
+        {
+          // 管理员 · 升学数据
+          path: 'enrollment',
+          name: 'enrollment',
+          component: () => import('../views/admin/EnrollmentView.vue'),
+          meta: { title: '升学数据', roles: [UserRole.ADMIN] },
+        },
+        {
           // 尚未实现界面的模块统一走占位页
           path: 'module/:key',
           name: 'module',
@@ -80,7 +178,7 @@ router.beforeEach((to) => {
 });
 
 router.afterEach((to) => {
-  const base = (import.meta.env.VITE_APP_TITLE as string) || '乡村公益助学平台';
+  const base = (import.meta.env.VITE_APP_TITLE as string) || '青禾';
   document.title = to.meta.title ? `${to.meta.title} · ${base}` : base;
 });
 
