@@ -115,6 +115,15 @@ export class UsersController {
     return this.usersService.deleteAccount(user.id, dto.password);
   }
 
+  @Get('hierarchy')
+  @Roles(UserRole.ADMIN, UserRole.SCHOOL_ADMIN)
+  @ApiOperation({
+    summary: '用户分层：学校 → 年级 → 班级 → 身份分区（学生/家长/教师）',
+  })
+  hierarchy(@CurrentUser() user: AuthUser) {
+    return this.usersService.hierarchy(user);
+  }
+
   @Get('students')
   @Roles(UserRole.TEACHER, UserRole.ADMIN)
   @ApiOperation({ summary: '教师/管理员：可见学生列表（教师限本校，供学情查看选人）' })

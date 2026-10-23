@@ -8,12 +8,15 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { randomBytes, scryptSync, timingSafeEqual } from 'crypto';
-import { StaffRole, UserRole } from '@teachstudy/shared';
+import { STAFF_ROLE_LABELS, StaffRole, UserRole } from '@teachstudy/shared';
 import { User } from './entities/user.entity';
 import { StudentProfile } from './entities/student-profile.entity';
 import { TeacherProfile } from './entities/teacher-profile.entity';
 import { ParentStudentLink } from './entities/parent-student-link.entity';
 import { StaffAppointment } from '../org/entities/staff-appointment.entity';
+import { School } from '../schools/entities/school.entity';
+import { Grade } from '../org/entities/grade.entity';
+import { ClassRoom } from '../classes/entities/class-room.entity';
 import {
   ChangePasswordDto,
   CreateUserDto,
@@ -66,6 +69,29 @@ export interface SafeMeView {
   classIds?: string[];
   gradeIds?: string[];
   schoolIds?: string[];
+}
+
+/** 分层视图中的一个人（手机号已脱敏） */
+export interface HierarchyPerson {
+  id: string;
+  username: string;
+  name: string;
+  role: string;
+  phone: string | null;
+  extra: string | null;
+}
+
+/** 学生 / 教师 / 家长 三个身份分区 */
+export interface HierarchyBucket {
+  students: HierarchyPerson[];
+  teachers: HierarchyPerson[];
+  parents: HierarchyPerson[];
+}
+
+export interface HierarchyClassNode extends HierarchyBucket {
+  id: string;
+  name: string;
+  inviteCode: string;
 }
 
 @Injectable()
@@ -412,6 +438,267 @@ export class UsersService {
       createdAt: u.createdAt,
       updatedAt: u.updatedAt,
     };
+  }
+
+  // ---------- 用户分层视图（学校 → 年级 → 班级 → 身份分区） ----------
+
+  /**
+   * 管理端「用户管理」的分层数据。
+   *
+   * 层级：学校 → 年级 → 班级，班级内再按 学生 / 家长 / 教师 三个身份分区。
+   * - 学生：按档案 `classId` 归班；未入班的按年级归到「未分配」，再不行归到学校级
+   * - 教师：按 `staff_appointments.class_admin` 归班（可带多个班）；未带班的归到学校级
+   * - 家长：按其孩子所在班级归位（多个孩子可能出现在多个班级）；无孩子的归到学校级
+   *
+   * 平台管理员不属于任何学校，单独返回。
+   * 演示规模下全量查询后内存分组，数据量增长后可改为分页 + SQL 分组。
+   */
+  async hierarchy(actor: AuthUser) {
+    const [schools, grades, rooms, allUsers, profiles, links, appointments] = await Promise.all([
+      this.dataSource.getRepository(School).find({ order: { createdAt: 'ASC' } }),
+      this.dataSource.getRepository(Grade).find({ order: { order: 'ASC' } }),
+      this.dataSource.getRepository(ClassRoom).find({ order: { className: 'ASC' } }),
+      this.users.find(),
+      this.studentProfiles.find(),
+      this.links.find({ where: { status: 'approved' } }),
+      this.appointments.find(),
+    ]);
+
+    const scopeSchoolId =
+      actor.role === UserRole.ADMIN ? null : (actor.schoolId ?? '__none__');
+
+    const userById = new Map(allUsers.map((u) => [u.id, u]));
+    const profileByUser = new Map(profiles.map((p) => [p.userId, p]));
+    const roomsById = new Map(rooms.map((r) => [r.id, r]));
+
+    const person = (u: User, extra?: string): HierarchyPerson => ({
+      id: u.id,
+      username: u.username,
+      name: u.name ?? u.username,
+      role: u.role,
+      phone: this.crypto.maskPhone(this.crypto.decrypt(u.phone)),
+      extra: extra ?? null,
+    });
+
+    /** 学生 → 班级 id */
+    const classOfStudent = (studentId: string): string | null => {
+      const p = profileByUser.get(studentId);
+      return p?.classId && roomsById.has(p.classId) ? p.classId : null;
+    };
+
+    /** 教师 → 班级 id 列表（班级管理员任命） */
+    const classesOfTeacher = new Map<string, string[]>();
+    for (const a of appointments) {
+      if (a.role !== 'class_admin' || !a.classId) continue;
+      const arr = classesOfTeacher.get(a.userId) ?? [];
+      arr.push(a.classId);
+      classesOfTeacher.set(a.userId, arr);
+    }
+
+    /** 家长 → 孩子（用于展示「家长 · 小明」） */
+    const childrenOfParent = new Map<string, string[]>();
+    for (const l of links) {
+      const arr = childrenOfParent.get(l.parentUserId) ?? [];
+      arr.push(l.studentUserId);
+      childrenOfParent.set(l.parentUserId, arr);
+    }
+
+    const visibleSchools = scopeSchoolId
+      ? schools.filter((s) => s.id === scopeSchoolId)
+      : schools;
+
+    type Person = HierarchyPerson;
+    type Bucket = HierarchyBucket;
+    type ClassNode = HierarchyClassNode;
+
+    const emptyBucket = (): HierarchyBucket => ({ students: [], teachers: [], parents: [] });
+    const newClassNode = (room: ClassRoom): HierarchyClassNode => ({
+      id: room.id,
+      name: room.name,
+      inviteCode: room.inviteCode,
+      students: [],
+      teachers: [],
+      parents: [],
+    });
+
+    /** 已被某所学校收纳的账号；剩下的放进顶层「未归属学校」桶，确保账号不凭空消失 */
+    const placed = new Set<string>();
+
+    const schoolNodes = visibleSchools.map((school) => {
+      const schoolGrades = grades.filter((g) => g.schoolId === school.id);
+      const schoolRooms = rooms.filter((r) => r.schoolId === school.id);
+
+      // 先建好本校全部班级，再把人一次性归位（避免按年级重复遍历导致重复计数）
+      const classesByGrade = new Map<string, ClassNode[]>();
+      const classById = new Map<string, ClassNode>();
+      for (const grade of schoolGrades) {
+        const nodes = schoolRooms
+          .filter((r) => r.gradeId === grade.id)
+          .map((room) => newClassNode(room));
+        classesByGrade.set(grade.id, nodes);
+        for (const node of nodes) classById.set(node.id, node);
+      }
+
+      const schoolBucket = emptyBucket();
+      const gradeBuckets = new Map<string, Bucket>();
+      const bucketOfGrade = (gradeId: string) => {
+        let b = gradeBuckets.get(gradeId);
+        if (!b) {
+          b = emptyBucket();
+          gradeBuckets.set(gradeId, b);
+        }
+        return b;
+      };
+
+      // 学生：一次遍历
+      for (const u of allUsers) {
+        if (u.role !== UserRole.STUDENT) continue;
+        const p = profileByUser.get(u.id);
+        if (u.schoolId !== school.id && p?.schoolId !== school.id) continue;
+        placed.add(u.id);
+
+        const classId = classOfStudent(u.id);
+        const node = classId ? classById.get(classId) : null;
+        if (node) {
+          node.students.push(person(u));
+          continue;
+        }
+        // 未入班：按档案里的年级归到年级未分配，否则归到学校未分配
+        const grade = p?.grade ? schoolGrades.find((g) => g.name === p.grade) : null;
+        (grade ? bucketOfGrade(grade.id) : schoolBucket).students.push(person(u));
+      }
+
+      // 教师：一次遍历（可带多个班）
+      for (const u of allUsers) {
+        if (![UserRole.TEACHER, UserRole.SCHOOL_ADMIN, UserRole.GRADE_ADMIN].includes(u.role)) {
+          continue;
+        }
+        if (u.schoolId !== school.id) continue;
+        placed.add(u.id);
+
+        const label = this.staffLabel(u.id, appointments);
+        const classIds = (classesOfTeacher.get(u.id) ?? []).filter((id) => classById.has(id));
+        if (classIds.length === 0) {
+          schoolBucket.teachers.push(person(u, label));
+        } else {
+          for (const id of classIds) classById.get(id)?.teachers.push(person(u, label));
+        }
+      }
+
+      // 家长：一次遍历，按孩子所在班级归位（多个孩子可能跨班）
+      for (const u of allUsers) {
+        if (u.role !== UserRole.PARENT) continue;
+
+        const children = childrenOfParent.get(u.id) ?? [];
+        const childNames: string[] = [];
+        const classIds = new Set<string>();
+        const childSchoolIds: string[] = [];
+        for (const childId of children) {
+          const child = userById.get(childId);
+          if (child) {
+            childNames.push(child.name ?? child.username);
+            if (child.schoolId) childSchoolIds.push(child.schoolId);
+          }
+          const classId = classOfStudent(childId);
+          if (classId) classIds.add(classId);
+        }
+
+        // 家长自己没填学校时，用孩子所在学校判断归属
+        if (u.schoolId !== school.id && !childSchoolIds.includes(school.id)) continue;
+        placed.add(u.id);
+
+        const label = `家长 · ${childNames.join('、') || '未绑定孩子'}`;
+        const inThisSchool = [...classIds].filter((id) => classById.has(id));
+        if (inThisSchool.length === 0) {
+          schoolBucket.parents.push(person(u, childNames.join('、') || '未绑定孩子'));
+        } else {
+          for (const id of inThisSchool) classById.get(id)?.parents.push(person(u, label));
+        }
+      }
+
+      const gradeNodes = schoolGrades.map((grade) => {
+        const nodes = classesByGrade.get(grade.id) ?? [];
+        return {
+          id: grade.id,
+          name: grade.name,
+          classCount: nodes.length,
+          classes: nodes,
+          unassigned: gradeBuckets.get(grade.id) ?? emptyBucket(),
+        };
+      });
+
+      const sum = (pick: (b: Bucket) => number) =>
+        gradeNodes.reduce(
+          (n, g) => n + g.classes.reduce((m, c) => m + pick(c), 0) + pick(g.unassigned),
+          0,
+        ) + pick(schoolBucket);
+
+      return {
+        id: school.id,
+        name: school.name,
+        region: school.region,
+        gradeCount: gradeNodes.length,
+        grades: gradeNodes,
+        unassigned: schoolBucket,
+        totals: {
+          students: sum((b) => b.students.length),
+          teachers: sum((b) => b.teachers.length),
+          parents: sum((b) => b.parents.length),
+          classes: gradeNodes.reduce((n, g) => n + g.classCount, 0),
+        },
+      };
+    });
+
+    const leftStudents = allUsers.filter((u) => u.role === UserRole.STUDENT && !placed.has(u.id));
+    const leftTeachers = allUsers.filter(
+      (u) =>
+        [UserRole.TEACHER, UserRole.SCHOOL_ADMIN, UserRole.GRADE_ADMIN].includes(u.role) &&
+        !placed.has(u.id),
+    );
+    const leftParents = allUsers.filter((u) => u.role === UserRole.PARENT && !placed.has(u.id));
+
+    const isPlatform = actor.role === UserRole.ADMIN;
+    const unassigned: HierarchyBucket = isPlatform
+      ? {
+          students: leftStudents.map((u) => person(u)),
+          teachers: leftTeachers.map((u) => person(u, this.staffLabel(u.id, appointments))),
+          parents: leftParents.map((u) => person(u, '未归属学校')),
+        }
+      : { students: [], teachers: [], parents: [] };
+
+    return {
+      totals: {
+        schools: visibleSchools.length,
+        grades: schoolNodes.reduce((n, s) => n + s.gradeCount, 0),
+        classes: schoolNodes.reduce((n, s) => n + s.totals.classes, 0),
+        students:
+          schoolNodes.reduce((n, s) => n + s.totals.students, 0) +
+          (isPlatform ? leftStudents.length : 0),
+        teachers:
+          schoolNodes.reduce((n, s) => n + s.totals.teachers, 0) +
+          (isPlatform ? leftTeachers.length : 0),
+        parents:
+          schoolNodes.reduce((n, s) => n + s.totals.parents, 0) +
+          (isPlatform ? leftParents.length : 0),
+      },
+      /** 未归属任何学校的账号（缺学校信息，建议补全） */
+      unassigned,
+      /** 平台管理员不属于任何学校，单独列出 */
+      platformAdmins: allUsers
+        .filter((u) => u.role === UserRole.ADMIN)
+        .map((u) => person(u)),
+      schools: schoolNodes,
+    };
+  }
+
+  /** 岗位中文（用于年级/学校管理员标注） */
+  private staffLabel(userId: string, appointments: StaffAppointment[]): string | undefined {
+    const roles = appointments.filter((a) => a.userId === userId).map((a) => a.role);
+    if (roles.length === 0) return undefined;
+    const labels = roles
+      .map((r) => STAFF_ROLE_LABELS[r as StaffRole] ?? r)
+      .filter((v, i, arr) => arr.indexOf(v) === i);
+    return labels.join(' · ');
   }
 
   /**

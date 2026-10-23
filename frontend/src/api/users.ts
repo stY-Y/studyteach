@@ -29,6 +29,64 @@ export interface MeResult {
   schoolIds?: string[];
 }
 
+/** 分层视图中的一个人 */
+export interface HierarchyPerson {
+  id: string;
+  username: string;
+  name: string;
+  role: string;
+  /** 脱敏手机号 */
+  phone?: string | null;
+  /** 附加说明：教师岗位 / 家长的孩子 */
+  extra?: string | null;
+}
+
+export interface HierarchyBucket {
+  students: HierarchyPerson[];
+  teachers: HierarchyPerson[];
+  parents: HierarchyPerson[];
+}
+
+export interface HierarchyClass extends HierarchyBucket {
+  id: string;
+  name: string;
+  inviteCode: string;
+}
+
+export interface HierarchyGrade {
+  id: string;
+  name: string;
+  classCount: number;
+  classes: HierarchyClass[];
+  unassigned: HierarchyBucket;
+}
+
+export interface HierarchySchool {
+  id: string;
+  name: string;
+  region?: string | null;
+  gradeCount: number;
+  grades: HierarchyGrade[];
+  unassigned: HierarchyBucket;
+  totals: { students: number; teachers: number; parents: number; classes: number };
+}
+
+export interface HierarchyResult {
+  totals: {
+    schools: number;
+    grades: number;
+    classes: number;
+    students: number;
+    teachers: number;
+    parents: number;
+  };
+  /** 未归属任何学校的账号（缺学校信息） */
+  unassigned: HierarchyBucket;
+  /** 平台管理员不属于任何学校 */
+  platformAdmins: HierarchyPerson[];
+  schools: HierarchySchool[];
+}
+
 /** 用户列表项（管理员） */
 export interface UserItem {
   id: string;
@@ -102,6 +160,9 @@ export const usersApi = {
 
   /** 教师/管理员：可见学生列表（教师限本校） */
   students: () => http.get<StudentListItem[]>('/users/students', { cache: true }),
+
+  /** 管理员：用户分层（学校 → 年级 → 班级 → 学生/家长/教师分区） */
+  hierarchy: () => http.get<HierarchyResult>('/users/hierarchy'),
 
   /** 管理员：用户列表（后端返回 [列表, 总数]） */
   list: (page = 1, pageSize = 20) =>
