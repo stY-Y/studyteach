@@ -44,7 +44,7 @@ export interface PhoneRegisterPayload {
   password: string;
   name?: string;
   role?: UserRole;
-  /** 学生注册必填：学校 / 年级 / 班级 */
+  /** 学生、教师注册必填学校；年级仅学生必填 */
   schoolId?: string;
   grade?: string;
   className?: string;

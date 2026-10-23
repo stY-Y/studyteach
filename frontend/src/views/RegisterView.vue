@@ -102,15 +102,16 @@ async function onSubmit(): Promise<void> {
     error.value = '两次输入的密码不一致';
     return;
   }
-  if (role.value === UserRole.STUDENT) {
+  // 学生与教师都必须绑定学校（教师入职某校后才能被该校任命为管理员）
+  if (role.value === UserRole.STUDENT || role.value === UserRole.TEACHER) {
     if (!schoolId.value) {
-      error.value = '请选择学校';
+      error.value = '请选择所在学校';
       return;
     }
-    if (!grade.value) {
-      error.value = '请选择年级';
-      return;
-    }
+  }
+  if (role.value === UserRole.STUDENT && !grade.value) {
+    error.value = '请选择年级';
+    return;
   }
 
   if (!agree.value) {
@@ -125,7 +126,11 @@ async function onSubmit(): Promise<void> {
       password: password.value,
       name: name.value.trim() || undefined,
       role: role.value,
-      schoolId: role.value === UserRole.STUDENT ? schoolId.value : undefined,
+      // 学生、教师都绑定学校；年级仅学生需要
+      schoolId:
+        role.value === UserRole.STUDENT || role.value === UserRole.TEACHER
+          ? schoolId.value
+          : undefined,
       grade: role.value === UserRole.STUDENT ? grade.value : undefined,
     });
     await router.replace({ name: 'home' });
@@ -264,10 +269,15 @@ onUnmounted(clearTimer);
           </p>
         </div>
 
-        <!-- 学生必填：学校 / 年级 / 班级 -->
-        <div v-if="role === UserRole.STUDENT" class="class-block">
+        <!-- 学生 / 教师必填：学校；学生另需年级 -->
+        <div
+          v-if="role === UserRole.STUDENT || role === UserRole.TEACHER"
+          class="class-block"
+        >
           <div class="field">
-            <label class="field-label" for="reg-school">学校</label>
+            <label class="field-label" for="reg-school">
+              所在学校<span class="req">*</span>
+            </label>
             <select id="reg-school" v-model="schoolId" class="input">
               <option value="">请选择学校</option>
               <option v-for="s in schools" :key="s.id" :value="s.id">
@@ -275,15 +285,21 @@ onUnmounted(clearTimer);
               </option>
             </select>
           </div>
-          <div class="field">
+          <div v-if="role === UserRole.STUDENT" class="field">
             <label class="field-label" for="reg-grade">年级</label>
             <select id="reg-grade" v-model="grade" class="input">
               <option value="">请选择</option>
               <option v-for="g in GRADES" :key="g" :value="g">{{ g }}</option>
             </select>
           </div>
-          <p class="text-xs text-faint">
+          <p v-if="role === UserRole.STUDENT" class="text-xs text-faint">
             注册后请在「我的班级」申请加入班级，老师审核通过后即可使用班级聊天与作业
+          </p>
+          <p v-else class="text-xs text-faint">
+            绑定学校后，该校的学校管理员才能任命你为年级/班级管理员；注册后仍为普通教师
+          </p>
+          <p v-if="schools.length === 0" class="text-xs text-faint">
+            暂无可选学校：请联系平台管理员先创建学校，再回来注册。
           </p>
         </div>
 
@@ -311,6 +327,11 @@ onUnmounted(clearTimer);
 </template>
 
 <style scoped>
+.req {
+  color: #b45309;
+  margin-left: 2px;
+}
+
 .register-page {
   min-height: 100vh;
   display: flex;

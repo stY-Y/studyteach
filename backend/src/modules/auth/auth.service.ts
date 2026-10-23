@@ -51,6 +51,17 @@ export class AuthService {
   }
 
   async register(dto: RegisterDto) {
+    const role = dto.role ?? UserRole.STUDENT;
+    // 学生与教师注册都必须绑定学校（教师入职某校后才能被该校任命）
+    if ((role === UserRole.STUDENT || role === UserRole.TEACHER) && !dto.schoolId) {
+      throw new BadRequestException(
+        role === UserRole.STUDENT ? '学生注册需选择学校' : '教师注册需选择所在学校',
+      );
+    }
+    if (role === UserRole.STUDENT && !dto.schoolId) {
+      throw new BadRequestException('学生注册需选择学校');
+    }
+
     const user = await this.usersService.create(dto);
     const payload = this.buildPayload(user);
     const token = await this.jwtService.signAsync(payload);
@@ -75,9 +86,15 @@ export class AuthService {
     if (exists) throw new ConflictException('该手机号已注册，请直接登录');
 
     const role = dto.role ?? UserRole.STUDENT;
-    // 学生注册需绑定学校与年级；班级改为注册后「申请加入」（教师建班、教师审核）
-    if (role === UserRole.STUDENT && (!dto.schoolId || !dto.grade)) {
-      throw new BadRequestException('学生注册需选择学校与年级');
+    // 学生与教师注册都必须绑定学校：学校是任命链的归属单位
+    if ((role === UserRole.STUDENT || role === UserRole.TEACHER) && !dto.schoolId) {
+      throw new BadRequestException(
+        role === UserRole.STUDENT ? '学生注册需选择学校' : '教师注册需选择所在学校',
+      );
+    }
+    // 学生另需年级；班级改为注册后「申请加入」（教师建班、班级管理员审核）
+    if (role === UserRole.STUDENT && !dto.grade) {
+      throw new BadRequestException('学生注册需选择年级');
     }
 
     const user = await this.usersService.createByPhone({
@@ -85,6 +102,7 @@ export class AuthService {
       password: dto.password,
       name: dto.name,
       role,
+      schoolId: dto.schoolId,
     });
 
     if (role === UserRole.STUDENT) {

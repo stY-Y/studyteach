@@ -207,6 +207,7 @@ export class UsersService {
     password: string;
     name?: string;
     role?: UserRole;
+    schoolId?: string;
   }): Promise<User> {
     const username = await this.generateUsername();
     return this.create({
@@ -215,6 +216,8 @@ export class UsersService {
       role: input.role ?? UserRole.STUDENT,
       name: input.name,
       phone: this.crypto.normalizePhone(input.phone) ?? input.phone,
+      // 教师与学生注册时都绑定学校：学校是任命链的归属单位
+      schoolId: input.schoolId,
     });
   }
 

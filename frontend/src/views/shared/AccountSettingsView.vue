@@ -53,6 +53,16 @@ const deleting = ref(false);
 
 const isStudent = computed(() => me.value?.role === UserRole.STUDENT);
 
+/** 教师/管理员的所属学校（任命链的归属单位，注册时绑定） */
+const isTeacherSide = computed(
+  () => me.value?.role !== UserRole.STUDENT && me.value?.role !== UserRole.PARENT,
+);
+const mySchoolName = computed(() => {
+  const id = me.value?.schoolId ?? auth.user?.schoolId ?? '';
+  if (!id) return '未绑定';
+  return schools.value.find((s) => s.id === id)?.name ?? id;
+});
+
 const PHONE_RE = /^1[3-9]\d{9}$/;
 
 function clearTimer(): void {
@@ -275,6 +285,12 @@ onUnmounted(clearTimer);
         <h2 class="section-title">账号信息</h2>
         <div class="info-row"><span class="info-label">登录账号</span><span class="mono">{{ me.username }}</span></div>
         <div class="info-row"><span class="info-label">当前手机号</span><span class="mono">{{ currentPhone || '未绑定' }}</span></div>
+        <div v-if="isTeacherSide" class="info-row">
+          <span class="info-label">所属学校</span><span>{{ mySchoolName }}</span>
+        </div>
+        <p v-if="isTeacherSide" class="text-xs text-faint">
+          学校在注册时绑定，也是管理员任命的归属单位；如需变更学校，请联系平台管理员调整。
+        </p>
         <p class="text-xs text-faint">手机号加密存储，仅你自己可见；列表中一律脱敏展示。</p>
       </section>
 
