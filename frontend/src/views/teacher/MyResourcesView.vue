@@ -56,6 +56,37 @@ async function offline(item: ResourceItem): Promise<void> {
   }
 }
 
+/** 修改文件简介（写清内容与适用场景，便于分类） */
+const editingId = ref('');
+const editDesc = ref('');
+const savingDesc = ref(false);
+
+function startEditDesc(item: ResourceItem): void {
+  error.value = '';
+  editingId.value = item.id;
+  editDesc.value = item.description ?? '';
+}
+
+async function saveDesc(item: ResourceItem): Promise<void> {
+  error.value = '';
+  const value = editDesc.value.trim();
+  if (value.length < 8) {
+    error.value = '简介至少 8 个字，写清内容与适用场景';
+    return;
+  }
+  savingDesc.value = true;
+  try {
+    await resourcesApi.update(item.id, { description: value });
+    tip.value = `「${item.title}」的简介已更新`;
+    editingId.value = '';
+    await load();
+  } catch (err) {
+    error.value = (err as Error).message;
+  } finally {
+    savingDesc.value = false;
+  }
+}
+
 function statusBadge(status: string): string {
   if (status === 'approved') return 'badge-success';
   if (status === 'rejected') return 'badge-danger';
@@ -99,6 +130,8 @@ onMounted(load);
         <li v-for="item in list" :key="item.id" class="res-item">
           <div class="res-main">
             <p class="res-title">{{ item.title }}</p>
+            <p v-if="item.description" class="res-desc">{{ item.description }}</p>
+            <p v-else class="res-desc text-faint">未填写简介，建议补上内容范围与适用对象，方便分类检索。</p>
             <div class="row wrap">
               <span class="badge">{{ resourceTypeLabel(item.type) }}</span>
               <span class="badge badge-primary">{{ subjectLabel(item.subject) }}</span>
@@ -112,6 +145,9 @@ onMounted(load);
             </p>
           </div>
           <div class="res-actions">
+            <button class="btn btn-sm" type="button" @click="startEditDesc(item)">
+              改简介
+            </button>
             <button class="btn btn-sm" type="button" @click="toggleScope(item)">
               {{ item.scope === ResourceScope.PUBLIC ? '改仅本校' : '改全平台' }}
             </button>
@@ -123,6 +159,23 @@ onMounted(load);
             >
               下架
             </button>
+          </div>
+
+          <div v-if="editingId === item.id" class="desc-editor">
+            <textarea
+              v-model="editDesc"
+              class="input"
+              rows="3"
+              maxlength="500"
+              placeholder="写清内容范围、适用对象与使用建议"
+            />
+            <div class="row wrap desc-actions">
+              <button class="btn btn-sm btn-primary" type="button" :disabled="savingDesc" @click="saveDesc(item)">
+                {{ savingDesc ? '保存中…' : '保存简介' }}
+              </button>
+              <button class="btn btn-sm" type="button" @click="editingId = ''">取消</button>
+              <span class="text-xs text-faint">{{ editDesc.trim().length }} / 500 字</span>
+            </div>
           </div>
         </li>
       </ul>
@@ -170,6 +223,32 @@ onMounted(load);
   font-size: 15px;
   font-weight: 600;
   word-break: break-all;
+}
+
+/* 文件简介：最多两行，超出省略 */
+.res-desc {
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--c-text-soft);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.desc-editor {
+  flex: 1 0 100%;
+  margin-top: 6px;
+}
+
+.desc-editor .input {
+  width: 100%;
+}
+
+.desc-actions {
+  margin-top: 6px;
+  align-items: center;
 }
 
 .res-meta {

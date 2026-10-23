@@ -10,6 +10,8 @@ import { API_BASE_URL, getToken, http } from './http';
 export interface ResourceItem {
   id: string;
   title: string;
+  /** 文件简介：内容与适用场景，便于分类与检索 */
+  description?: string | null;
   type: ResourceType;
   subject: Subject;
   stage: StudyStage;
@@ -132,8 +134,8 @@ export const resourcesApi = {
   /** 教师/管理员：上传资源（进入校级审核） */
   upload: uploadResource,
 
-  /** 教师/管理员：修改标题或开放范围 */
-  update: (id: string, body: { title?: string; scope?: ResourceScope }) =>
+  /** 教师/管理员：修改标题、简介或开放范围 */
+  update: (id: string, body: { title?: string; description?: string; scope?: ResourceScope }) =>
     http.patch<ResourceItem>(`/resources/${id}`, body),
 
   /** 教师/管理员：下架资源 */

@@ -366,6 +366,7 @@ onUnmounted(() => {
           <span class="res-icon">{{ typeMeta(item.type)?.icon ?? '📦' }}</span>
           <div class="res-main clickable" role="button" tabindex="0" @click="openPreview(item)" @keyup.enter="openPreview(item)">
             <p class="res-title">{{ item.title }}</p>
+            <p v-if="item.description" class="res-desc">{{ item.description }}</p>
             <div class="row wrap">
               <span class="badge">{{ typeMeta(item.type)?.label ?? item.type }}</span>
               <span class="badge badge-primary">{{ subjectLabel(item.subject) }}</span>
@@ -497,6 +498,18 @@ onUnmounted(() => {
   font-size: 15px;
   font-weight: 600;
   word-break: break-all;
+}
+
+/* 文件简介：最多两行，避免卡片过长 */
+.res-desc {
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--c-text-soft);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .res-main.clickable {

@@ -62,8 +62,8 @@ export class ResourcesService {
       file.buffer,
     );
 
-    // 知识点标签自动匹配（可人工覆盖）
-    const autoTags = await this.ai.extractKnowledgeTags(dto.title, '');
+    // 知识点标签自动匹配（可人工覆盖）：简介里往往含学段/知识点线索，一并参与匹配
+    const autoTags = await this.ai.extractKnowledgeTags(dto.title, dto.description ?? '');
     const knowledgePoints = dto.knowledgePoints
       ? (JSON.parse(dto.knowledgePoints) as string[])
       : autoTags;
@@ -71,6 +71,7 @@ export class ResourcesService {
     return this.repo.save(
       this.repo.create({
         title: dto.title,
+        description: dto.description.trim(),
         type: dto.type,
         subject: dto.subject,
         stage: dto.stage,

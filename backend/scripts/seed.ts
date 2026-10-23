@@ -440,6 +440,10 @@ async function seedResources(ds: DataSource, app: INestApplicationContext): Prom
   for (const r of SEED_RESOURCES) {
     const exists = await repo.findOne({ where: { title: r.title } });
     if (exists) {
+      // 老数据没有简介：顺手补齐，保证演示清单能看到分类信息
+      if (!exists.description && r.description) {
+        await repo.update(exists.id, { description: r.description });
+      }
       stats.resourceSkipped += 1;
       continue;
     }
@@ -450,6 +454,7 @@ async function seedResources(ds: DataSource, app: INestApplicationContext): Prom
     await repo.save(
       repo.create({
         title: r.title,
+        description: r.description,
         type: r.type,
         subject: r.subject,
         stage: r.stage,

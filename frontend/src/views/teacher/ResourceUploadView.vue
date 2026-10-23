@@ -25,6 +25,8 @@ const TYPES = Object.values(ResourceType);
 const SCOPES = Object.values(ResourceScope);
 
 const title = ref('');
+/** 文件简介：必填，写清内容与适用场景，便于分类与检索 */
+const description = ref('');
 const type = ref<ResourceType>(ResourceType.EXAM_PAPER);
 const subject = ref<Subject>(Subject.MATH);
 const stage = ref<StudyStage>(StudyStage.JUNIOR);
@@ -70,11 +72,21 @@ async function submit(): Promise<void> {
     error.value = '请填写资源标题';
     return;
   }
+  const intro = description.value.trim();
+  if (intro.length < 8) {
+    error.value = '请填写至少 8 个字的文件简介，写清内容与适用场景';
+    return;
+  }
+  if (intro.length > 500) {
+    error.value = '文件简介最多 500 字';
+    return;
+  }
   uploading.value = true;
   try {
     const form = new FormData();
     form.append('file', file.value);
     form.append('title', title.value.trim());
+    form.append('description', intro);
     form.append('type', type.value);
     form.append('subject', subject.value);
     form.append('stage', stage.value);
@@ -83,6 +95,7 @@ async function submit(): Promise<void> {
     done.value = await resourcesApi.upload(form);
     file.value = null;
     title.value = '';
+    description.value = '';
   } catch (err) {
     error.value = (err as Error).message;
   } finally {
@@ -118,6 +131,23 @@ function goHome(): void {
       <div class="field note">
         <label class="field-label" for="up-title">资源标题</label>
         <input id="up-title" v-model="title" class="input" type="text" placeholder="如：八年级上册数学期末复习提纲" />
+      </div>
+
+      <div class="field note">
+        <label class="field-label" for="up-desc">
+          文件简介<span class="req">*</span>
+        </label>
+        <textarea
+          id="up-desc"
+          v-model="description"
+          class="input"
+          rows="4"
+          maxlength="500"
+          placeholder="写清三点：① 内容范围（如「第一章到第三章，含 20 道典型题」）② 适用对象（如「八年级上学期，基础中等学生」）③ 使用建议（如「配合课本例题使用」）"
+        />
+        <p class="text-xs text-faint desc-meta">
+          {{ description.trim().length }} / 500 字 · 简介会显示在资源清单里，帮助学生和老师判断是否合用
+        </p>
       </div>
 
       <div class="form-grid note">
@@ -200,6 +230,15 @@ function goHome(): void {
   padding: 10px 12px;
   min-height: 46px;
   line-height: 1.4;
+}
+
+.req {
+  color: #b45309;
+  margin-left: 2px;
+}
+
+.desc-meta {
+  margin-top: 4px;
 }
 
 .chips {

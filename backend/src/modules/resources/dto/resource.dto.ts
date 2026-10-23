@@ -1,5 +1,15 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Max, Min } from 'class-validator';
+import {
+  IsEnum,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+} from 'class-validator';
 import {
   ResourceScope,
   ResourceType,
@@ -14,6 +24,16 @@ export class UploadResourceDto {
   @IsString()
   @IsNotEmpty()
   title: string;
+
+  @ApiProperty({
+    description: '文件简介（8-500 字）：写清内容、适用场景与使用建议，便于分类与检索',
+    minLength: 8,
+    maxLength: 500,
+  })
+  @IsString({ message: '请填写文件简介' })
+  @MinLength(8, { message: '请填写至少 8 个字的文件简介' })
+  @MaxLength(500, { message: '文件简介最多 500 字' })
+  description: string;
 
   @ApiProperty({ enum: ResourceType })
   @IsEnum(ResourceType)
@@ -53,6 +73,13 @@ export class UpdateResourceDto {
   @IsOptional()
   @IsString()
   title?: string;
+
+  @ApiPropertyOptional({ description: '文件简介（8-500 字）' })
+  @IsOptional()
+  @IsString()
+  @MinLength(8, { message: '请填写至少 8 个字的文件简介' })
+  @MaxLength(500, { message: '文件简介最多 500 字' })
+  description?: string;
 
   @ApiPropertyOptional({ enum: ResourceScope })
   @IsOptional()

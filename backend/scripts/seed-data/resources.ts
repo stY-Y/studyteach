@@ -9,6 +9,8 @@ import { ResourceScope, ResourceType, StudyStage, Subject } from '@teachstudy/sh
  */
 export interface SeedResource {
   title: string;
+  /** 文件简介（演示资源自动生成，便于验证清单展示与分类） */
+  description: string;
   type: ResourceType;
   subject: Subject;
   stage: StudyStage;
@@ -94,10 +96,13 @@ function make(
   subject: Subject,
   type: ResourceType,
 ): SeedResource {
+  const kind =
+    type === ResourceType.EXAM_PAPER ? '单元练习' : type === ResourceType.EBOOK ? '知识手册' : '导学案';
   return {
-    title: `【演示】${GRADE_LABELS[grade]}${SUBJECT_LABELS[subject]}·${
-      type === ResourceType.EXAM_PAPER ? '单元练习' : type === ResourceType.EBOOK ? '知识手册' : '导学案'
-    }`,
+    title: `【演示】${GRADE_LABELS[grade]}${SUBJECT_LABELS[subject]}·${kind}`,
+    description:
+      `【演示】${GRADE_LABELS[grade]}${SUBJECT_LABELS[subject]}${kind}，围绕本年级本学科核心知识点整理，` +
+      `可用于课堂同步讲解与课后自主复习；正文为占位内容，仅用于验证资源筛选、预览与离线缓存链路。`,
     type,
     subject,
     stage,

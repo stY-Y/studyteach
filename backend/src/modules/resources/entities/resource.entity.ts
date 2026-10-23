@@ -25,6 +25,13 @@ export class Resource {
   @Column({ type: 'varchar', length: 128 })
   title: string;
 
+  /**
+   * 文件简介：上传时由教师填写，写清内容与适用场景。
+   * 用于清单展示、检索与分类，避免只看标题无法判断是否合用。
+   */
+  @Column({ type: 'text', nullable: true })
+  description: string | null;
+
   @Column({ type: 'varchar', length: 32 })
   type: ResourceType;
 
