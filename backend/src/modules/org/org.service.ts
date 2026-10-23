@@ -134,9 +134,13 @@ export class OrgService {
   // ==================== 年级（学校管理员任命年级管理员） ====================
 
   async listGrades(actor: AuthUser, schoolId?: string) {
-    // 年级管理员：只看自己管理的年级（可能兼任多个）
+    // 纯年级管理员：只看自己管理的年级（可能兼任多个）
+    // 学校管理员即使兼任某年级管理员，也应看到本校全部年级，便于统筹
     const staffRoles = actor.staffRoles ?? [];
-    if (staffRoles.includes(StaffRole.GRADE_ADMIN) && actor.role !== UserRole.ADMIN) {
+    if (
+      actor.role === UserRole.GRADE_ADMIN &&
+      staffRoles.includes(StaffRole.GRADE_ADMIN)
+    ) {
       const own = await this.staff.contextOf(actor.id);
       if (own.gradeIds.length === 0) return [];
       const list = await this.grades.find({
