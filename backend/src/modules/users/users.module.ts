@@ -6,13 +6,14 @@ import { TeacherProfile } from './entities/teacher-profile.entity';
 import { ParentStudentLink } from './entities/parent-student-link.entity';
 import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
+import { CryptoService } from '../../common/security/crypto.service';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([User, StudentProfile, TeacherProfile, ParentStudentLink]),
   ],
   controllers: [UsersController],
-  providers: [UsersService],
+  providers: [UsersService, CryptoService],
   exports: [UsersService],
 })
 export class UsersModule {}

@@ -22,8 +22,8 @@ export class StudentProfile {
   @Column({ type: 'simple-json', nullable: true })
   subjects: string[];
 
-  @Column({ name: 'guardian_phone', type: 'varchar', length: 32, nullable: true })
-  guardianPhone: string;
+  @Column({ name: 'guardian_phone', type: 'varchar', length: 255, nullable: true })
+  guardianPhone: string | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

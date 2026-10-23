@@ -21,6 +21,7 @@ import {
   UpdateProfileDto,
 } from './dto/user.dto';
 import { AuthUser } from '../../common/decorators/current-user.decorator';
+import { CryptoService } from '../../common/security/crypto.service';
 
 /** 学生列表项（教师/管理员可见，剔除密码等敏感字段） */
 export interface StudentListItem {
@@ -33,6 +34,34 @@ export interface StudentListItem {
   subjects?: string[] | null;
 }
 
+/** 管理员用户列表项（脱敏：剔除 passwordHash，手机号脱敏展示） */
+export interface SafeUserListItem {
+  id: string;
+  username: string;
+  role: UserRole;
+  name?: string | null;
+  phone?: string | null;
+  schoolId?: string | null;
+  avatar?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/** 当前用户安全视图（剔除 passwordHash；本人手机号/监护人手机解密明文） */
+export interface SafeMeView {
+  id: string;
+  username: string;
+  role: UserRole;
+  name?: string | null;
+  phone?: string | null;
+  schoolId?: string | null;
+  avatar?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  studentProfile?: StudentProfile | null;
+  teacherProfile?: TeacherProfile | null;
+}
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -43,6 +72,7 @@ export class UsersService {
     private readonly teacherProfiles: Repository<TeacherProfile>,
     @InjectRepository(ParentStudentLink)
     private readonly links: Repository<ParentStudentLink>,
+    private readonly crypto: CryptoService,
   ) {}
 
   // ---------- 密码（Node 原生 scrypt，无额外原生依赖） ----------
@@ -118,14 +148,19 @@ export class UsersService {
       passwordHash: this.hashPassword(dto.password),
       role: dto.role ?? UserRole.STUDENT,
       name: dto.name,
-      phone: dto.phone,
+      phone: this.crypto.encrypt(dto.phone),
       schoolId: dto.schoolId,
     });
     return this.users.save(user);
   }
 
   async updateProfile(userId: string, dto: UpdateProfileDto): Promise<User | null> {
-    await this.users.update(userId, dto);
+    const patch: Partial<User> = { ...dto };
+    // 手机号属敏感字段，入库前加密
+    if (dto.phone !== undefined) {
+      patch.phone = this.crypto.encrypt(dto.phone);
+    }
+    await this.users.update(userId, patch);
     return this.findById(userId);
   }
 
@@ -134,9 +169,27 @@ export class UsersService {
     return this.studentProfiles.findOne({ where: { userId } });
   }
 
+  /**
+   * 学生档案视图：解密监护人手机（学生本人查看时明文，便于核对）。
+   * 任何非本人的学情/列表接口都不调用本方法，确保监护人手机不外泄。
+   */
+  async getStudentProfileView(userId: string): Promise<StudentProfile | null> {
+    const profile = await this.getStudentProfile(userId);
+    if (profile) {
+      profile.guardianPhone = this.crypto.decrypt(profile.guardianPhone);
+    }
+    return profile;
+  }
+
   async saveStudentProfile(userId: string, dto: StudentProfileDto): Promise<StudentProfile> {
     const existing = await this.getStudentProfile(userId);
-    const profile = existing ? Object.assign(existing, dto) : this.studentProfiles.create({ userId, ...dto });
+    const profile = existing
+      ? Object.assign(existing, dto)
+      : this.studentProfiles.create({ userId, ...dto });
+    // 监护人手机属敏感字段，入库前加密
+    if (dto.guardianPhone !== undefined) {
+      profile.guardianPhone = this.crypto.encrypt(dto.guardianPhone);
+    }
     const saved = await this.studentProfiles.save(profile);
 
     // 学校同时写进账号：资源「仅本校可见」、教师限本校审核都读 User.schoolId
@@ -192,5 +245,48 @@ export class UsersService {
 
   listChildren(parentUserId: string): Promise<ParentStudentLink[]> {
     return this.links.find({ where: { parentUserId, status: 'approved' } });
+  }
+
+  /**
+   * 管理员用户列表项：剔除 passwordHash，手机号脱敏展示（避免敏感信息落入前端离线缓存）。
+   */
+  toSafeUser(u: User): SafeUserListItem {
+    return {
+      id: u.id,
+      username: u.username,
+      role: u.role,
+      name: u.name,
+      // 先解密（兼容历史明文），再脱敏展示，避免把密文透出给前端
+      phone: this.crypto.maskPhone(this.crypto.decrypt(u.phone)),
+      schoolId: u.schoolId,
+      avatar: u.avatar,
+      createdAt: u.createdAt,
+      updatedAt: u.updatedAt,
+    };
+  }
+
+  /**
+   * 当前用户安全视图：剔除 passwordHash；本人手机号、监护人手机解密为明文（本人可见）。
+   */
+  async getMeView(userId: string): Promise<SafeMeView | null> {
+    const base = await this.findById(userId);
+    if (!base) return null;
+    const studentProfile =
+      base.role === UserRole.STUDENT ? await this.getStudentProfileView(userId) : null;
+    const teacherProfile =
+      base.role === UserRole.TEACHER ? await this.getTeacherProfile(userId) : null;
+    return {
+      id: base.id,
+      username: base.username,
+      role: base.role,
+      name: base.name,
+      phone: this.crypto.decrypt(base.phone),
+      schoolId: base.schoolId,
+      avatar: base.avatar,
+      createdAt: base.createdAt,
+      updatedAt: base.updatedAt,
+      studentProfile,
+      teacherProfile,
+    };
   }
 }

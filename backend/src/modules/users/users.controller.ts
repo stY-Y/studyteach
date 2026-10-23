@@ -13,7 +13,7 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@teachstudy/shared';
 import { AuthUser, CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { UsersService } from './users.service';
+import { UsersService, SafeUserListItem } from './users.service';
 import {
   ChangePasswordDto,
   CreateUserDto,
@@ -31,12 +31,8 @@ export class UsersController {
   @Get('me')
   @ApiOperation({ summary: '当前用户信息（含学生/教师档案）' })
   async me(@CurrentUser() user: AuthUser) {
-    const base = await this.usersService.findById(user.id);
-    const studentProfile =
-      base?.role === UserRole.STUDENT ? await this.usersService.getStudentProfile(user.id) : null;
-    const teacherProfile =
-      base?.role === UserRole.TEACHER ? await this.usersService.getTeacherProfile(user.id) : null;
-    return { ...base, studentProfile, teacherProfile };
+    // 安全视图：剔除 passwordHash；本人手机号/监护人手机解密明文
+    return this.usersService.getMeView(user.id);
   }
 
   @Patch('me')
@@ -49,7 +45,8 @@ export class UsersController {
   @Roles(UserRole.STUDENT)
   @ApiOperation({ summary: '学生：获取本人档案' })
   getMyStudentProfile(@CurrentUser() user: AuthUser) {
-    return this.usersService.getStudentProfile(user.id);
+    // 解密监护人手机（学生本人查看，明文便于核对）
+    return this.usersService.getStudentProfileView(user.id);
   }
 
   @Put('me/student-profile')
@@ -90,11 +87,16 @@ export class UsersController {
   @Get()
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: '管理员：用户列表' })
-  list(
+  async list(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('pageSize', new DefaultValuePipe(20), ParseIntPipe) pageSize: number,
   ) {
-    return this.usersService.list(page, pageSize);
+    // 脱敏：剔除 passwordHash，手机号脱敏展示
+    const [rows, total] = await this.usersService.list(page, pageSize);
+    return [rows.map((u) => this.usersService.toSafeUser(u)), total] as [
+      SafeUserListItem[],
+      number,
+    ];
   }
 
   @Patch('me/password')

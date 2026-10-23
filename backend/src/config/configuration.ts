@@ -41,6 +41,7 @@ export default () => {
     env: env.NODE_ENV || 'development',
     port: parseInt(env.PORT || '3000', 10),
     appName: env.APP_NAME || 'teachstudy',
+    encryptionKey: env.ENCRYPTION_KEY || '',
     database,
     jwt: {
       secret: env.JWT_SECRET || 'dev-secret-change-me',
