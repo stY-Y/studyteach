@@ -77,6 +77,10 @@ function clearCache(): void {
 
 onMounted(async () => {
   void checkHealth();
+  // 旧缓存可能没有岗位字段（staffRoles），补一次，避免按岗位显示的入口被误隐藏
+  if (auth.user && auth.user.staffRoles === undefined) {
+    void auth.syncProfile();
+  }
   if (auth.user?.role === UserRole.PARENT) {
     try {
       childCount.value = (await usersApi.children()).length;

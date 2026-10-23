@@ -40,6 +40,31 @@ export class AuthService {
     };
   }
 
+  /**
+   * 登录/注册返回的完整用户信息：基础字段 + 任命岗位。
+   *
+   * 前端工作台按岗位决定显示哪些入口（我的班级、班级聊天、年级管理等），
+   * 所以登录响应必须带上 staffRoles，否则刚登录时会看不到这些入口
+   * （之前只有 /auth/me 带，登录后不会自动再拉一次）。
+   */
+  private async payloadWithStaff(user: {
+    id: string;
+    username: string;
+    role: string;
+    name?: string;
+    schoolId?: string | null;
+  }) {
+    const base = this.buildPayload(user);
+    const staff = await this.usersService.staffContext(user.id);
+    return {
+      ...base,
+      staffRoles: staff.staffRoles,
+      classIds: staff.classIds,
+      gradeIds: staff.gradeIds,
+      schoolIds: staff.schoolIds,
+    };
+  }
+
   async login(dto: LoginDto) {
     const user = await this.usersService.findByUsername(dto.username);
     if (!user || !this.usersService.verifyPassword(dto.password, user.passwordHash)) {
@@ -49,7 +74,7 @@ export class AuthService {
     if (user.status === 'disabled') {
       throw new UnauthorizedException('账号已被停用，请联系平台管理员');
     }
-    const payload = this.buildPayload(user);
+    const payload = await this.payloadWithStaff(user);
     const token = await this.jwtService.signAsync(payload);
     return { token, user: payload };
   }
@@ -67,7 +92,7 @@ export class AuthService {
     }
 
     const user = await this.usersService.create(dto);
-    const payload = this.buildPayload(user);
+    const payload = await this.payloadWithStaff(user);
     const token = await this.jwtService.signAsync(payload);
     return { token, user: payload };
   }
@@ -116,7 +141,7 @@ export class AuthService {
       });
     }
 
-    const payload = this.buildPayload(user);
+    const payload = await this.payloadWithStaff(user);
     return { token: await this.jwtService.signAsync(payload), user: payload };
   }
 
@@ -135,7 +160,7 @@ export class AuthService {
     if (user.status === 'disabled') {
       throw new UnauthorizedException('账号已被停用，请联系平台管理员');
     }
-    const payload = this.buildPayload(user);
+    const payload = await this.payloadWithStaff(user);
     return { token: await this.jwtService.signAsync(payload), user: payload };
   }
 }

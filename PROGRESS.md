@@ -651,6 +651,22 @@ teachstudy/
   - 正常上传 → 简介入库（41 字），`PATCH /resources/:id` 改简介成功
   - 学生资源列表返回 `description`；72 份演示资源全部有简介
 
+### 32. 修复：登录后教师看不到「我的班级 / 班级聊天」入口
+- **现象**：教师登录后工作台没有班级相关入口，看起来像被删了
+- **根因**（不是入口被删，入口配置 43 个模块都在）
+  - 登录接口 `POST /auth/login` 返回的 `user` 只含 `id/username/role/name/schoolId`，**缺 `staffRoles`**
+  - 工作台按岗位过滤入口（`hasStaff(user, m.staff)`），`staffRoles` 为 `undefined` → 所有带 `staff` 标记的模块被隐藏（我的班级、班级聊天、家长沟通、学情查看、通知）
+  - `/auth/me` 是带岗位的，但登录后前端不会自动再拉一次（`App.vue` 的 `restore()` 只在应用启动时执行，那时还没有 token）
+- **修复**
+  1. 后端新增 `payloadWithStaff()`：登录 / 注册（账号、手机号）响应统一带 `staffRoles / classIds / gradeIds / schoolIds`
+  2. 前端 `stores/auth.ts` 新增 `syncProfile()`：登录成功后同步一次 `/auth/me` 兜底，失败不阻塞登录、不清登录态
+  3. 前端 `HomeView` 挂载时若发现缓存的 `staffRoles === undefined`（老缓存），自动补一次
+- **未改动**：`config/modules.ts` 一个入口都没删；学生端、家长端、平台管理员的模块列表与岗位过滤无关，全部照旧
+- **验证**
+  - 登录响应：`teacher → staffRoles: ['class_admin']`、`schooladmin → ['school_admin']`、`student / parent → []`
+  - 页面 `/`、`/class`、`/chat`、`/login` 均 200
+  - 岗位标记只存在于教师端 7 个管理类模块（第 60-66 行），其他三端无任何过滤
+
 ### 7. 需求对齐的关键机制
 | 需求 | 落地位置 |
 | --- | --- |

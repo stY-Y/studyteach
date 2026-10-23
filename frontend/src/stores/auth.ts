@@ -37,7 +37,8 @@ export const useAuthStore = defineStore('auth', {
       try {
         const result = await authApi.login(username, password);
         this.applySession(result);
-        return result.user;
+        await this.syncProfile();
+        return this.user ?? result.user;
       } finally {
         this.loading = false;
       }
@@ -49,7 +50,8 @@ export const useAuthStore = defineStore('auth', {
       try {
         const result = await authApi.loginByPhone(phone, password);
         this.applySession(result);
-        return result.user;
+        await this.syncProfile();
+        return this.user ?? result.user;
       } finally {
         this.loading = false;
       }
@@ -61,9 +63,25 @@ export const useAuthStore = defineStore('auth', {
       try {
         const result = await authApi.registerByPhone(payload);
         this.applySession(result);
-        return result.user;
+        await this.syncProfile();
+        return this.user ?? result.user;
       } finally {
         this.loading = false;
+      }
+    },
+
+    /**
+     * 同步完整用户资料（含任命岗位）。
+     * 工作台按岗位显示入口，登录响应若缺岗位会导致「我的班级/班级聊天」等入口暂时消失，
+     * 这里再拉一次 /auth/me 兜底；失败不阻塞登录，也不清登录态。
+     */
+    async syncProfile(): Promise<void> {
+      try {
+        const me = await authApi.me();
+        this.user = { ...(this.user ?? {}), ...me } as AuthUser;
+        storage.set('user', this.user);
+      } catch {
+        /* 忽略：已有登录态，下次刷新会重新同步 */
       }
     },
 
