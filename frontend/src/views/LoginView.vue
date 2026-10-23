@@ -96,7 +96,7 @@ async function onSubmit(): Promise<void> {
         <BrandMark :size="56" class="brand-logo" />
         <h1 class="brand-title">青禾</h1>
         <p class="brand-sub">乡村公益助学 · 纯公益 · 全免费 · 无广告</p>
-        <p class="brand-warm">让每一个乡村孩子，都被好好点亮 🌱</p>
+        <p class="brand-warm">十年树木，百年树人。愿每一株乡村的幼苗，都被温柔照亮。</p>
       </header>
 
       <!-- 四端入口 -->
@@ -225,88 +225,108 @@ async function onSubmit(): Promise<void> {
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding: 28px 16px 48px;
-  background: var(--c-bg);
+  padding: 34px 16px 56px;
+  /* 天光：顶部一束暖光，底部一线田野。静态渐变，只绘制一次 */
+  background:
+    radial-gradient(900px 480px at 50% -12%, #f7e3c1 0%, rgba(247, 227, 193, 0) 70%),
+    linear-gradient(180deg, var(--c-surface-warm) 0%, #f6f1e5 60%, #eef0e2 100%);
 }
 
 .login-box {
   width: 100%;
-  max-width: 460px;
+  max-width: 480px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 20px;
 }
 
 /* ---------- 品牌 ---------- */
 .brand-block {
   text-align: center;
+  padding-top: 8px;
 }
 
 .brand-logo {
-  margin: 0 auto 10px;
+  margin: 0 auto 14px;
 }
 
 .brand-title {
-  font-size: 21px;
+  font-size: 30px;
+  letter-spacing: 0.14em;
+  color: var(--c-brand-deep);
 }
 
 .brand-sub {
-  margin-top: 5px;
+  margin-top: 8px;
   font-size: 13px;
   color: var(--c-text-soft);
+  letter-spacing: 0.04em;
 }
 
 .brand-warm {
-  margin-top: 6px;
-  font-size: 14px;
-  color: var(--c-primary-dark);
+  margin: 14px auto 0;
+  font-family: var(--font-title);
+  font-size: 15px;
+  line-height: 1.9;
+  color: var(--c-text-soft);
+  max-width: 320px;
+  padding-top: 12px;
+  /* 书页上的一道细绿线：分隔而不切割 */
+  border-top: 1px solid var(--c-border-strong);
 }
 
 /* ---------- 四端入口 ---------- */
 .section-label {
   font-size: 13px;
-  color: var(--c-text-soft);
-  margin-bottom: 8px;
+  color: var(--c-text-faint);
+  margin-bottom: 10px;
   text-align: center;
+  letter-spacing: 0.06em;
 }
 
 .entrance-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
+  gap: 12px;
 }
 
 .entrance {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 3px;
-  padding: 13px 8px;
+  gap: 4px;
+  padding: 16px 10px 14px;
   font-family: inherit;
   background: var(--c-surface);
   border: 1.5px solid var(--c-border);
-  border-radius: var(--radius);
+  border-radius: 16px;
   cursor: pointer;
-  transition: border-color 0.12s, background-color 0.12s;
+  box-shadow: 0 1px 2px rgba(96, 70, 28, 0.04);
+  transition: border-color 0.14s, background-color 0.14s, box-shadow 0.14s;
 }
 
 .entrance:hover {
-  border-color: #e8d3ab;
+  border-color: #e2cf9f;
 }
 
 .entrance.active {
-  border-color: var(--c-primary);
-  background: var(--c-primary-soft);
+  border-color: var(--c-brand);
+  background: var(--c-brand-soft);
+  box-shadow: 0 1px 3px rgba(63, 125, 58, 0.14);
 }
 
 .entrance-icon {
-  font-size: 22px;
+  font-size: 24px;
 }
 
 .entrance-label {
   font-size: 15px;
   font-weight: 600;
   color: var(--c-text);
+}
+
+.entrance.active .entrance-label {
+  color: var(--c-brand-deep);
 }
 
 .entrance-desc {
@@ -318,30 +338,34 @@ async function onSubmit(): Promise<void> {
 .login-form {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 15px;
+  padding: 24px 22px;
+  border-radius: 18px;
 }
 
 .form-title {
-  font-size: 17px;
+  font-size: 19px;
+  color: var(--c-text);
 }
 
 .mode-tabs {
   display: flex;
   gap: 6px;
   padding: 4px;
-  background: #f2e8d5;
-  border-radius: var(--radius-sm);
+  background: var(--c-surface-warm);
+  border: 1px solid var(--c-border);
+  border-radius: 999px;
 }
 
 .mode-tab {
   flex: 1;
-  min-height: 36px;
+  min-height: 38px;
   font-family: inherit;
   font-size: 14px;
   color: var(--c-text-soft);
   background: transparent;
   border: none;
-  border-radius: 6px;
+  border-radius: 999px;
   cursor: pointer;
   transition: background-color 0.12s, color 0.12s;
 }
@@ -350,10 +374,11 @@ async function onSubmit(): Promise<void> {
   color: var(--c-primary-dark);
   background: var(--c-surface);
   font-weight: 600;
+  box-shadow: 0 1px 2px rgba(96, 70, 28, 0.08);
 }
 
 .hint {
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
 .register-entry {
@@ -363,12 +388,15 @@ async function onSubmit(): Promise<void> {
 
 .link {
   color: var(--c-primary);
+  font-weight: 500;
   text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 /* ---------- 演示账号 ---------- */
 .demo {
-  padding: 12px 16px;
+  padding: 14px 18px;
+  border-radius: 16px;
 }
 
 .demo summary {
@@ -380,11 +408,11 @@ async function onSubmit(): Promise<void> {
 
 .demo-list {
   list-style: none;
-  margin: 10px 0 6px;
+  margin: 12px 0 8px;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .demo-item {
@@ -392,14 +420,15 @@ async function onSubmit(): Promise<void> {
   align-items: center;
   gap: 8px;
   width: 100%;
-  min-height: 40px;
-  padding: 0 10px;
+  min-height: 42px;
+  padding: 0 12px;
   font-family: inherit;
-  background: #f7f1e3;
+  background: var(--c-surface-warm);
   border: 1px solid var(--c-border);
-  border-radius: var(--radius-sm);
+  border-radius: 10px;
   cursor: pointer;
   text-align: left;
+  transition: border-color 0.12s, background-color 0.12s;
 }
 
 .demo-item:hover {
@@ -409,7 +438,7 @@ async function onSubmit(): Promise<void> {
 
 @media (min-width: 480px) {
   .entrance-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
   }
 }
 </style>

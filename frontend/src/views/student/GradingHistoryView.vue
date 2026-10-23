@@ -154,7 +154,7 @@ onMounted(load);
   gap: 2px;
   padding: 12px 8px;
   background: var(--c-primary-soft);
-  border: 1px solid #eed7b5;
+  border: 1px solid var(--c-border-warm);
   border-radius: var(--radius-sm);
 }
 
@@ -185,7 +185,7 @@ onMounted(load);
   flex-direction: column;
   gap: 8px;
   padding: 12px;
-  background: #faf6ec;
+  background: var(--c-surface-warm);
   border: 1px solid var(--c-border);
   border-radius: var(--radius-sm);
 }

@@ -118,20 +118,29 @@ function logout(): void {
   z-index: 20;
   background: var(--c-surface);
   border-bottom: 1px solid var(--c-border);
+  box-shadow: 0 1px 3px rgba(96, 70, 28, 0.06);
+}
+
+/* 顶部细带：禾苗绿 → 熟橙，像田埂到天光，品牌的"内涵"藏在最上面一线 */
+.header::before {
+  content: '';
+  display: block;
+  height: 3px;
+  background: linear-gradient(90deg, var(--c-brand) 0%, #7fa35c 45%, var(--c-primary) 100%);
 }
 
 .header-inner {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   height: var(--header-h);
-  padding: 0 16px;
+  padding: 0 18px;
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 10px;
   color: var(--c-text);
   min-width: 0;
 }
@@ -144,7 +153,9 @@ function logout(): void {
 }
 
 .brand-text strong {
-  font-size: 15px;
+  font-family: var(--font-title);
+  font-size: 18px;
+  letter-spacing: 0.04em;
   white-space: nowrap;
 }
 
@@ -152,6 +163,7 @@ function logout(): void {
   font-size: 11px;
   font-style: normal;
   color: var(--c-text-faint);
+  letter-spacing: 0.02em;
 }
 
 .user {
@@ -164,9 +176,9 @@ function logout(): void {
 }
 
 .offline-bar {
-  background: #fffbeb;
-  border-bottom: 1px solid #fde68a;
-  color: #92400e;
+  background: var(--c-warning-soft);
+  border-bottom: 1px solid var(--c-warning-border);
+  color: var(--c-warning);
   font-size: 13px;
   padding: 8px 16px;
   text-align: center;
@@ -194,21 +206,25 @@ function logout(): void {
   align-items: center;
   gap: 10px;
   min-height: 42px;
-  padding: 0 12px;
-  border-radius: var(--radius-sm);
+  padding: 0 12px 0 10px;
+  border-radius: 10px;
   color: var(--c-text-soft);
   font-size: 15px;
+  border-left: 3px solid transparent;
+  transition: background-color 0.12s, color 0.12s, border-color 0.12s;
 }
 
 .nav-item:hover {
-  background: #f4ecdc;
+  background: var(--c-surface-warm);
   color: var(--c-text);
 }
 
+/* 当前导航：软橙底 + 左侧禾绿细条，"书页上的书签" */
 .nav-item.active {
   background: var(--c-primary-soft);
-  color: var(--c-primary);
-  font-weight: 500;
+  color: var(--c-primary-dark);
+  font-weight: 600;
+  border-left-color: var(--c-brand);
 }
 
 .nav-icon {

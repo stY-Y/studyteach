@@ -252,7 +252,7 @@ onUnmounted(() => {
 .bubble {
   margin: 0;
   padding: 9px 12px;
-  background: #f4ecdc;
+  background: var(--c-surface-warm);
   border: 1px solid var(--c-border);
   border-radius: 10px;
   font-size: 15px;
@@ -263,7 +263,7 @@ onUnmounted(() => {
 
 .message.mine .bubble {
   background: var(--c-primary-soft);
-  border-color: #ecd0b4;
+  border-color: var(--c-border-warm);
 }
 
 .composer {

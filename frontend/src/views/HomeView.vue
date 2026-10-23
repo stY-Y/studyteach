@@ -171,6 +171,9 @@ onMounted(async () => {
         所有功能与资源全免费开放；核心内容支持离线缓存，适配低带宽与网络不稳定场景。
       </p>
     </section>
+
+    <!-- 「青禾」之名，出自荀子《劝学》——这是给每个乡村孩子的祝愿 -->
+    <p class="brand-line">「青，取之于蓝，而青于蓝。」—— 荀子 ·《劝学》</p>
   </div>
 </template>
 
@@ -179,33 +182,51 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
   flex-wrap: wrap;
+  padding: 22px 20px;
+  border-radius: 18px;
+  /* 书页上的一抹晨光：从左到右由暖转淡 */
+  background: linear-gradient(120deg, #fdf2dd 0%, var(--c-surface) 60%);
 }
 
 .head-text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
+}
+
+.head .page-title {
+  font-size: 22px;
+  letter-spacing: 0.03em;
 }
 
 .note {
-  margin-top: 8px;
+  margin-top: 10px;
   line-height: 1.55;
 }
 
 .welcome-line {
   font-size: 14px;
   color: var(--c-text-soft);
-  padding: 0 4px;
+  padding: 0 6px;
 }
 
 .grid-gap {
-  margin-top: 8px;
+  margin-top: 10px;
 }
 
 .wrap {
   flex-wrap: wrap;
   gap: 6px;
+}
+
+.brand-line {
+  text-align: center;
+  font-family: var(--font-title);
+  font-size: 14px;
+  color: var(--c-text-faint);
+  letter-spacing: 0.06em;
+  padding: 16px 0 2px;
 }
 </style>

@@ -176,7 +176,7 @@ function submit(): void {
 .bar {
   margin-top: 8px;
   height: 6px;
-  background: #f3ecdc;
+  background: var(--c-surface-warm);
   border-radius: 3px;
   overflow: hidden;
 }
@@ -284,7 +284,7 @@ function submit(): void {
 .sheet-item.done {
   color: var(--c-primary);
   background: var(--c-primary-soft);
-  border-color: #eed7b5;
+  border-color: var(--c-border-warm);
 }
 
 .sheet-item.current {

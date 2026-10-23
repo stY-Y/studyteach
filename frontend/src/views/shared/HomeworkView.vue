@@ -588,7 +588,7 @@ onMounted(() => {
   align-items: flex-start;
   gap: 8px;
   padding: 6px 10px;
-  background: #f7f1e3;
+  background: var(--c-surface-warm);
   border: 1px solid var(--c-border);
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -600,7 +600,7 @@ onMounted(() => {
 }
 
 .answer-panel {
-  border-color: #ecd0b4;
+  border-color: var(--c-border-warm);
 }
 
 .sub-block {
@@ -608,7 +608,7 @@ onMounted(() => {
   flex-direction: column;
   gap: 10px;
   padding: 12px;
-  background: #faf6ec;
+  background: var(--c-surface-warm);
   border: 1px solid var(--c-border);
   border-radius: var(--radius-sm);
 }

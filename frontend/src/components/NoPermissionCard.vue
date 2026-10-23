@@ -155,7 +155,7 @@ async function refreshPermission(): Promise<void> {
   padding: 10px 12px;
   border: 1px solid var(--c-border);
   border-radius: 10px;
-  background: #fdf8ef;
+  background: var(--c-surface-warm);
 }
 
 .fact {

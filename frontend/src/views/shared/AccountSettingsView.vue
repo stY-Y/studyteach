@@ -474,11 +474,11 @@ onUnmounted(clearTimer);
 }
 
 .text-warn {
-  color: #b45309;
+  color: var(--c-primary-dark);
 }
 
 .danger-zone {
-  border-color: #e6b8ae;
-  background: #fdf6f4;
+  border-color: var(--c-danger-border);
+  background: var(--c-danger-soft);
 }
 </style>

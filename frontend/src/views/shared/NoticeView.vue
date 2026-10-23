@@ -110,7 +110,7 @@ onMounted(async () => {
   display: flex;
   gap: 6px;
   padding: 4px;
-  background: #f2e8d5;
+  background: var(--c-surface-warm);
   border-radius: var(--radius-sm);
   width: fit-content;
 }

@@ -328,7 +328,7 @@ onUnmounted(clearTimer);
 
 <style scoped>
 .req {
-  color: #b45309;
+  color: var(--c-primary-dark);
   margin-left: 2px;
 }
 
@@ -337,20 +337,23 @@ onUnmounted(clearTimer);
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding: 28px 16px 48px;
-  background: var(--c-bg);
+  padding: 32px 16px 56px;
+  background:
+    radial-gradient(900px 480px at 50% -12%, #f7e3c1 0%, rgba(247, 227, 193, 0) 70%),
+    linear-gradient(180deg, #faf5e9 0%, var(--c-bg) 60%, #eef0e2 100%);
 }
 
 .register-box {
   width: 100%;
-  max-width: 460px;
+  max-width: 480px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
 }
 
 .brand-block {
   text-align: center;
+  padding-top: 4px;
 }
 
 .brand-logo {
@@ -358,19 +361,24 @@ onUnmounted(clearTimer);
 }
 
 .brand-title {
-  font-size: 20px;
+  font-size: 24px;
+  letter-spacing: 0.06em;
+  color: var(--c-brand-deep);
 }
 
 .brand-sub {
-  margin-top: 5px;
+  margin-top: 8px;
   font-size: 13px;
   color: var(--c-text-soft);
+  letter-spacing: 0.03em;
 }
 
 .register-form {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 15px;
+  padding: 24px 22px;
+  border-radius: 18px;
 }
 
 .class-block {
@@ -378,7 +386,7 @@ onUnmounted(clearTimer);
   flex-direction: column;
   gap: 12px;
   padding: 12px;
-  background: #f7f1e3;
+  background: var(--c-surface-warm);
   border: 1px solid var(--c-border);
   border-radius: var(--radius-sm);
 }
@@ -426,7 +434,7 @@ onUnmounted(clearTimer);
   align-items: flex-start;
   gap: 8px;
   padding: 10px 12px;
-  background: #f7f1e3;
+  background: var(--c-surface-warm);
   border: 1px solid var(--c-border);
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -439,7 +447,7 @@ onUnmounted(clearTimer);
 }
 
 .text-warn {
-  color: #b45309;
+  color: var(--c-primary-dark);
 }
 
 .switch {

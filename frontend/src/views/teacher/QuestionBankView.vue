@@ -531,7 +531,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   color: var(--c-text-soft);
-  background: #f7f1e3;
+  background: var(--c-surface-warm);
 }
 
 .q-list {

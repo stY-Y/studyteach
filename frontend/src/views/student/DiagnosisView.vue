@@ -321,7 +321,7 @@ onMounted(() => {
 
 .records-item {
   padding: 8px 10px;
-  background: #faf6ec;
+  background: var(--c-surface-warm);
   border: 1px solid var(--c-border);
   border-radius: var(--radius-sm);
 }

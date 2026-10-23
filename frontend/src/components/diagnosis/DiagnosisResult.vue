@@ -206,7 +206,7 @@ function masteryClass(wp: WeakPoint): string {
 
 .bar {
   height: 8px;
-  background: #f3ecdc;
+  background: var(--c-surface-warm);
   border-radius: 4px;
   overflow: hidden;
 }
@@ -221,7 +221,7 @@ function masteryClass(wp: WeakPoint): string {
 }
 
 .bar-fill.mid {
-  background: #d97706;
+  background: var(--c-primary);
 }
 
 .bar-fill.high {

@@ -828,7 +828,7 @@ onMounted(async () => {
 .stat {
   padding: 4px 10px;
   font-size: 13px;
-  background: #faf6ec;
+  background: var(--c-surface-warm);
   border: 1px solid var(--c-border);
   border-radius: 999px;
   color: var(--c-text-soft);
@@ -872,7 +872,7 @@ onMounted(async () => {
 
 .grade-head {
   margin-top: 4px;
-  background: #faf6ec;
+  background: var(--c-surface-warm);
   border: 1px solid var(--c-border);
   border-radius: var(--radius-sm);
   padding: 7px 10px;
@@ -923,7 +923,7 @@ onMounted(async () => {
 
 .identity {
   padding: 8px 10px;
-  background: #fdfaf3;
+  background: var(--c-surface);
   border: 1px solid var(--c-border);
   border-radius: var(--radius-sm);
 }
@@ -974,7 +974,7 @@ onMounted(async () => {
 .unassigned {
   margin: 8px 0 4px 20px;
   padding: 8px 10px;
-  background: #fbf7ef;
+  background: var(--c-surface);
   border: 1px dashed var(--c-border);
   border-radius: var(--radius-sm);
 }
@@ -1012,7 +1012,7 @@ onMounted(async () => {
   align-items: center;
   gap: 10px;
   padding: 9px 12px;
-  background: #faf6ec;
+  background: var(--c-surface-warm);
   border: 1px solid var(--c-border);
   border-radius: var(--radius-sm);
 }
@@ -1059,7 +1059,7 @@ onMounted(async () => {
 }
 
 .person-btn:hover {
-  background: #fff9ec;
+  background: var(--c-surface);
 }
 
 /* ---------- 人员管理面板 ---------- */
@@ -1085,8 +1085,8 @@ onMounted(async () => {
 }
 
 .btn-danger {
-  color: #b91c1c;
-  border-color: #f0c9c9;
-  background: #fff6f6;
+  color: var(--c-danger);
+  border-color: var(--c-danger-border);
+  background: var(--c-danger-soft);
 }
 </style>

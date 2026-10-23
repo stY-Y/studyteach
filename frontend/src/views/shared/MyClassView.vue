@@ -459,7 +459,7 @@ onUnmounted(stopPoll);
 .member-panel {
   margin: 6px 0 10px;
   padding: 10px 12px;
-  background: #faf6ec;
+  background: var(--c-surface-warm);
   border: 1px solid var(--c-border);
   border-radius: var(--radius-sm);
 }
@@ -477,7 +477,7 @@ onUnmounted(stopPoll);
 }
 
 .text-warn {
-  color: #b45309;
+  color: var(--c-primary-dark);
 }
 
 .transfer-select {

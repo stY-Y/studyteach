@@ -1,37 +1,61 @@
 /* ============================================================
-   轻量设计系统（温馨暖调 · 扁平 · 无阴影 · 无渐变 · 无 UI 框架）
-   设计目标：乡村老旧手机 / 低配校园电脑上内存占用与绘制开销最低，
-   同时呈现「温暖、亲切、有希望感」的公益助学氛围。
-   要点：
-     - 一律用 1px 边框代替 box-shadow（阴影会触发额外的绘制与合成层）
-     - 只用 background / border-color / color 做过渡（GPU 开销极低）
-     - 不做圆角阴影卡片堆叠、不做毛玻璃、不做装饰性动画
-     - 温馨感来自暖色相（奶油底 + 暖橙主色 + 棕灰文字）与稍大的圆角，而非昂贵特效
-     - 保留大字号与 ≥44px 点击区域（低数字素养用户可用性不能牺牲）
+   轻量设计系统 · 「田埂上的书页」
+   意象：奶油纸面是书页，禾苗绿是新芽，熟橙是秋收的田野。
+   设计目标：
+     - 温馨、简约、有书卷气（楷体标题 + 充足留白）
+     - 零外部字体 / 零图片 / 零第三方框架
+     - 低配友好：无大面积模糊、无循环动画、无昂贵合成层
+     - 兼容 Chrome/Edge 87+（含 Windows 7 最后一版 Chrome 109）
    ============================================================ */
 :root {
-  --c-primary: #d97706;
-  --c-primary-dark: #b45309;
-  --c-primary-soft: #faeed7;
-  /* 品牌标识专用绿：青禾的禾苗色，与暖橙主色形成「土地＋新苗」的搭配 */
+  /* 纸与墨 */
+  --c-bg: #f6f1e5;
+  --c-surface: #fffdf8;
+  --c-surface-warm: #faf4e6;
+  --c-border: #e7dcc4;
+  --c-border-strong: #d8caa9;
+
+  /* 熟橙：秋收田野，主操作色 */
+  --c-primary: #c97416;
+  --c-primary-dark: #a35a0e;
+  --c-primary-soft: #f8e8cf;
+
+  /* 禾绿：品牌标识与「生长、希望」语境 */
   --c-brand: #3f7d3a;
   --c-brand-deep: #2f612c;
-  --c-success: #4a7c3f;
-  --c-warning: #92580a;
-  --c-danger: #bb4a3c;
+  --c-brand-soft: #e9f1e3;
 
-  --c-text: #3a2f24;
-  --c-text-soft: #6e6152;
-  --c-text-faint: #a0917d;
+  /* 状态色 */
+  --c-success: #48753b;
+  --c-warning: #956011;
+  --c-danger: #b5493c;
 
-  --c-border: #e8ddc8;
-  --c-border-strong: #d6c5a8;
-  --c-bg: #faf4e9;
-  --c-surface: #fffdf7;
+  /* 状态软底与边框（提示条、徽标共用） */
+  --c-border-warm: #eed8b3;
+  --c-success-soft: var(--c-brand-soft);
+  --c-success-border: #cfe0c2;
+  --c-warning-soft: #fdf4dd;
+  --c-warning-border: #edd8a8;
+  --c-danger-soft: #fbeeec;
+  --c-danger-border: #efc7bd;
 
-  --radius: 10px;
-  --radius-sm: 7px;
-  --header-h: 52px;
+  /* 墨色文字 */
+  --c-text: #33291f;
+  --c-text-soft: #6f6350;
+  --c-text-faint: #a3967f;
+
+  /* 圆角 */
+  --radius: 14px;
+  --radius-sm: 10px;
+
+  /* 字体：楷体标题有书卷气；不加载外部字体，系统自带即降级 */
+  --font-body: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+  --font-title: 'Kaiti SC', 'KaiTi', 'STKaiti', 'KaiTi_GB2312', 'FangSong', 'Songti SC',
+    'Georgia', serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --header-h: 56px;
 }
 
 * {
@@ -45,12 +69,12 @@ body {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB',
-    'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+  font-family: var(--font-body);
   font-size: 16px; /* 基准字号偏大：适配乡村用户与老旧屏幕 */
   line-height: 1.6;
   color: var(--c-text);
-  background: var(--c-bg);
+  /* 纸面微光：顶部略亮，向下渐柔。静态渐变只绘制一次，低端机可承受 */
+  background: linear-gradient(180deg, #faf5e9 0%, var(--c-bg) 320px);
   -webkit-text-size-adjust: 100%;
 }
 
@@ -60,8 +84,10 @@ body {
 
 h1, h2, h3 {
   margin: 0;
+  font-family: var(--font-title);
   font-weight: 600;
   line-height: 1.35;
+  letter-spacing: 0.01em;
 }
 
 p {
@@ -84,7 +110,7 @@ a {
 .stack {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .row {
@@ -100,7 +126,7 @@ a {
 /* 卡片栅格：手机 1 列 → 平板 2 列 → 桌面 3 列 */
 .grid {
   display: grid;
-  gap: 10px;
+  gap: 12px;
   grid-template-columns: 1fr;
 }
 
@@ -116,12 +142,13 @@ a {
   }
 }
 
-/* ---------- 卡片（纯边框，无阴影） ---------- */
+/* ---------- 卡片（边框 + 极轻暖阴影，纸页浮起的感觉） ---------- */
 .card {
   background: var(--c-surface);
   border: 1px solid var(--c-border);
   border-radius: var(--radius);
-  padding: 14px;
+  padding: 18px;
+  box-shadow: 0 1px 2px rgba(96, 70, 28, 0.05);
 }
 
 /* ---------- 选择胶囊（学科/学段/题型等单选场景） ---------- */
@@ -130,7 +157,7 @@ a {
   align-items: center;
   justify-content: center;
   min-height: 44px;
-  padding: 0 14px;
+  padding: 0 15px;
   font-family: inherit;
   font-size: 15px;
   color: var(--c-text);
@@ -155,11 +182,11 @@ a {
 
 /* ---------- 空状态（配一句暖话，别让孩子挫败） ---------- */
 .empty {
-  padding: 22px 16px;
+  padding: 24px 18px;
   text-align: center;
   color: var(--c-text-soft);
   font-size: 14px;
-  background: var(--c-primary-soft);
+  background: var(--c-surface-warm);
   border: 1px dashed var(--c-border-strong);
   border-radius: var(--radius);
   line-height: 1.7;
@@ -172,7 +199,7 @@ a {
   justify-content: center;
   gap: 6px;
   min-height: 44px; /* 大点击区域，适配低数字素养用户 */
-  padding: 0 16px;
+  padding: 0 17px;
   font-size: 16px;
   font-family: inherit;
   font-weight: 500;
@@ -181,12 +208,17 @@ a {
   border: 1px solid var(--c-border-strong);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: background-color 0.12s, border-color 0.12s;
+  transition: background-color 0.12s, border-color 0.12s, color 0.12s;
 }
 
 .btn:hover:not(:disabled) {
   border-color: var(--c-primary);
   color: var(--c-primary);
+  background: #fffbf2;
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .btn:disabled {
@@ -198,6 +230,8 @@ a {
   background: var(--c-primary);
   border-color: var(--c-primary);
   color: #fff;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(163, 90, 14, 0.22);
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -212,7 +246,7 @@ a {
 
 .btn-sm {
   min-height: 34px;
-  padding: 0 12px;
+  padding: 0 13px;
   font-size: 14px;
 }
 
@@ -220,7 +254,7 @@ a {
 .field {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
 }
 
 .field-label {
@@ -232,7 +266,7 @@ a {
 .input {
   width: 100%;
   min-height: 46px;
-  padding: 0 12px;
+  padding: 0 14px;
   font-size: 16px; /* ≥16px 可避免 iOS 聚焦时自动放大 */
   font-family: inherit;
   color: var(--c-text);
@@ -240,76 +274,82 @@ a {
   border: 1px solid var(--c-border-strong);
   border-radius: var(--radius-sm);
   outline: none;
-  transition: border-color 0.12s;
+  transition: border-color 0.12s, box-shadow 0.12s;
 }
 
 .input:focus {
   border-color: var(--c-primary);
+  box-shadow: 0 0 0 3px rgba(201, 116, 22, 0.13);
 }
 
 /* ---------- 提示条 ---------- */
 .alert {
-  padding: 9px 12px;
+  padding: 10px 14px;
   border-radius: var(--radius-sm);
   font-size: 14px;
   border: 1px solid transparent;
 }
 
 .alert-danger {
-  background: #fbeceb;
-  border-color: #f0c4bb;
+  background: var(--c-danger-soft);
+  border-color: var(--c-danger-border);
   color: var(--c-danger);
 }
 
 .alert-warning {
-  background: #fcf3e0;
-  border-color: #ecd7ab;
+  background: var(--c-warning-soft);
+  border-color: var(--c-warning-border);
   color: var(--c-warning);
 }
 
 .alert-info {
   background: var(--c-primary-soft);
-  border-color: #eed7b5;
+  border-color: var(--c-border-warm);
   color: var(--c-primary-dark);
 }
 
 .alert-success {
-  background: #eef6e6;
-  border-color: #c9e2b8;
+  background: var(--c-success-soft);
+  border-color: var(--c-success-border);
   color: var(--c-success);
 }
 
-/* ---------- 徽标 ---------- */
+/* ---------- 徽标（胶囊形，更亲和） ---------- */
 .badge {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 1px 8px;
+  padding: 3px 10px;
   font-size: 12px;
   font-weight: 500;
-  border-radius: 4px;
-  background: #f3ecdd;
+  border-radius: 999px;
+  background: var(--c-surface-warm);
+  border: 1px solid var(--c-border);
   color: var(--c-text-soft);
   white-space: nowrap;
 }
 
 .badge-primary {
   background: var(--c-primary-soft);
+  border-color: var(--c-border-warm);
   color: var(--c-primary-dark);
 }
 
 .badge-success {
-  background: #eef6e6;
+  background: var(--c-success-soft);
+  border-color: var(--c-success-border);
   color: var(--c-success);
 }
 
 .badge-warning {
-  background: #fcf3e0;
+  background: var(--c-warning-soft);
+  border-color: var(--c-warning-border);
   color: var(--c-warning);
 }
 
 .badge-danger {
-  background: #fbeceb;
+  background: var(--c-danger-soft);
+  border-color: var(--c-danger-border);
   color: var(--c-danger);
 }
 
@@ -331,16 +371,18 @@ a {
 }
 
 .mono {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
 }
 
+/* ---------- 标题 ---------- */
 .page-title {
-  font-size: 19px;
+  font-size: 21px;
 }
 
 .section-title {
   font-size: 14px;
   font-weight: 600;
   color: var(--c-text-soft);
+  letter-spacing: 0.02em;
 }

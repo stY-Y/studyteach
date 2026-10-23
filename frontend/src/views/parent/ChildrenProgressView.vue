@@ -327,7 +327,7 @@ onMounted(async () => {
   gap: 6px;
   margin-top: 12px;
   padding: 4px;
-  background: #f2e8d5;
+  background: var(--c-surface-warm);
   border-radius: var(--radius-sm);
   width: fit-content;
 }
@@ -428,7 +428,7 @@ onMounted(async () => {
 
 .bar {
   height: 8px;
-  background: #f3ecdc;
+  background: var(--c-surface-warm);
   border-radius: 4px;
   overflow: hidden;
 }
@@ -502,7 +502,7 @@ onMounted(async () => {
   gap: 8px;
   min-height: 44px;
   padding: 0 10px;
-  background: #faf6ec;
+  background: var(--c-surface-warm);
   border: 1px solid var(--c-border);
   border-radius: var(--radius-sm);
 }

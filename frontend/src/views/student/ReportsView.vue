@@ -293,7 +293,7 @@ onMounted(() => {
   gap: 2px;
   padding: 12px 8px;
   background: var(--c-primary-soft);
-  border: 1px solid #eed7b5;
+  border: 1px solid var(--c-border-warm);
   border-radius: var(--radius-sm);
 }
 
@@ -335,7 +335,7 @@ onMounted(() => {
 
 .bar {
   height: 8px;
-  background: #f3ecdc;
+  background: var(--c-surface-warm);
   border-radius: 4px;
   overflow: hidden;
 }

@@ -30,48 +30,65 @@ function open(): void {
 .module-card {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 9px;
   width: 100%;
-  padding: 16px;
+  padding: 18px;
   text-align: left;
   font-family: inherit;
   background: var(--c-surface);
   border: 1px solid var(--c-border);
-  border-radius: var(--radius);
-
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(96, 70, 28, 0.05);
   cursor: pointer;
-  transition: border-color 0.12s, background-color 0.12s;
+  transition: border-color 0.14s, box-shadow 0.14s, background-color 0.14s;
 }
 
 .module-card:hover {
-  border-color: var(--c-primary);
-
+  border-color: #e2cf9f;
+  background: #fffbf1;
+  box-shadow: 0 3px 8px rgba(96, 70, 28, 0.09);
 }
 
 .module-card:active {
-  background: #faf5ea;
+  background: var(--c-primary-soft);
 }
 
 .module-head {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
+/* 图标放在一枚"徽章"里，卡片立刻有了节奏 */
 .module-icon {
-  font-size: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
   flex: none;
+  font-size: 20px;
+  background: var(--c-surface-warm);
+  border: 1px solid var(--c-border);
+  border-radius: 12px;
+}
+
+.module-card:hover .module-icon {
+  background: var(--c-primary-soft);
+  border-color: var(--c-border-warm);
 }
 
 .module-name {
-  font-size: 16px;
+  font-family: var(--font-title);
+  font-size: 17px;
   font-weight: 600;
   color: var(--c-text);
+  letter-spacing: 0.02em;
 }
 
 .module-desc {
-  font-size: 13.5px;
-  line-height: 1.55;
+  font-size: 13px;
+  line-height: 1.65;
   color: var(--c-text-soft);
 }
 

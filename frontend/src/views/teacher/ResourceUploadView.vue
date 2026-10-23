@@ -233,7 +233,7 @@ function goHome(): void {
 }
 
 .req {
-  color: #b45309;
+  color: var(--c-primary-dark);
   margin-left: 2px;
 }
 

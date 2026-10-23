@@ -173,7 +173,7 @@ onMounted(load);
 
 .col-item {
   padding: 10px 12px;
-  background: #faf6ec;
+  background: var(--c-surface-warm);
   border: 1px solid var(--c-border);
   border-radius: var(--radius-sm);
 }

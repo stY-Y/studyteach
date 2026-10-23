@@ -360,7 +360,7 @@ onMounted(load);
   padding: 12px;
   border: 1px dashed var(--c-border);
   border-radius: 10px;
-  background: #fdf8ef;
+  background: var(--c-surface-warm);
 }
 
 .stack-sm {
@@ -388,11 +388,11 @@ onMounted(load);
   padding: 10px 12px;
   border: 1px solid var(--c-border);
   border-radius: 10px;
-  background: #fffdf8;
+  background: var(--c-surface);
 }
 
 .notice-item.pinned {
-  border-color: #ecd0b4;
+  border-color: var(--c-border-warm);
   background: var(--c-primary-soft);
 }
 

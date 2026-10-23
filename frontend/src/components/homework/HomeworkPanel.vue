@@ -593,7 +593,7 @@ onMounted(() => {
 .answer-box {
   margin-top: 8px;
   padding: 10px 12px;
-  background: #faf6ec;
+  background: var(--c-surface-warm);
   border: 1px solid var(--c-border);
   border-radius: var(--radius-sm);
 }
@@ -650,7 +650,7 @@ onMounted(() => {
   flex-direction: column;
   gap: 10px;
   padding: 12px;
-  background: #faf6ec;
+  background: var(--c-surface-warm);
   border: 1px solid var(--c-border);
   border-radius: var(--radius-sm);
 }
@@ -697,7 +697,7 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   padding: 5px 7px;
-  background: #f7f1e3;
+  background: var(--c-surface-warm);
   border: 1px solid var(--c-border);
   border-radius: var(--radius-sm);
   font-size: 13px;
