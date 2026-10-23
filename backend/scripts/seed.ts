@@ -581,17 +581,26 @@ async function seedOrg(ds: DataSource, app: INestApplicationContext): Promise<vo
   const gradeAdmin = await usersService.findByUsername('gradeadmin');
 
   let created = 0;
-  for (let i = 0; i < STANDARD_GRADES.length; i += 1) {
-    const name = STANDARD_GRADES[i];
-    const exists = await grades.findOne({ where: { schoolId: SEED_SCHOOL_ID, name } });
-    if (exists) {
-      if (exists.order !== i) await grades.update(exists.id, { order: i });
-      continue;
+  const existingGrades = await grades.find({ where: { schoolId: SEED_SCHOOL_ID } });
+  if (existingGrades.length === 0) {
+    // 只在学校还没有任何年级时初始化 12 个；学校管理员改过年级个数后，seed 不再覆盖
+    for (let i = 0; i < STANDARD_GRADES.length; i += 1) {
+      await grades.save(
+        grades.create({ schoolId: SEED_SCHOOL_ID, name: STANDARD_GRADES[i], order: i }),
+      );
+      created += 1;
     }
-    await grades.save(grades.create({ schoolId: SEED_SCHOOL_ID, name, order: i }));
-    created += 1;
+  } else {
+    // 已有配置：仅校正顺序，不增删
+    for (const g of existingGrades) {
+      const order = STANDARD_GRADES.indexOf(g.name);
+      if (order >= 0 && g.order !== order) {
+        await grades.update(g.id, { order });
+      }
+    }
   }
   if (created > 0) console.log(`  已创建 ${created} 个标准年级（小学 6 + 初中 3 + 高中 3）`);
+  else console.log(`  学校已有 ${existingGrades.length} 个年级，保留现有配置`);
 
   const gradeEight = await grades.findOne({
     where: { schoolId: SEED_SCHOOL_ID, name: '八年级' },

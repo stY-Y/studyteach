@@ -15,21 +15,30 @@ const error = ref('');
 const tip = ref('');
 const acting = ref('');
 
-const newGrade = reactive({ name: '' });
-const creating = ref(false);
+/** 年级设置：勾选本校实际开设的年级，保存后自动增删 */
+const GRADES = [
+  '一年级', '二年级', '三年级', '四年级', '五年级', '六年级',
+  '七年级', '八年级', '九年级', '高一', '高二', '高三',
+];
+
+/** 常见学段组合，一键套用 */
+const PRESETS: Array<{ key: string; label: string; names: string[] }> = [
+  { key: 'primary', label: '小学（6 个年级）', names: GRADES.slice(0, 6) },
+  { key: 'junior', label: '初中（3 个年级）', names: GRADES.slice(6, 9) },
+  { key: 'senior', label: '高中（3 个年级）', names: GRADES.slice(9, 12) },
+  { key: 'nine', label: '九年一贯制（9 个）', names: GRADES.slice(0, 9) },
+  { key: 'complete', label: '完全中学（6 个）', names: GRADES.slice(6, 12) },
+  { key: 'twelve', label: '十二年一贯制（12 个）', names: [...GRADES] },
+];
+
+const selected = ref<string[]>([]);
+const saving = ref(false);
+const canConfigure = computed(() => Boolean(auth.user?.schoolId));
 const pick = reactive<Record<string, string>>({});
 
 /** 通知：学校管理员 → 年级管理员 */
 const notice = reactive({ gradeId: '', title: '', content: '' });
 const sending = ref(false);
-
-const GRADES = [
-  '一年级', '二年级', '三年级', '四年级', '五年级', '六年级',
-  '七年级', '八年级', '九年级', '高一', '高二', '高三',
-];
-const availableGrades = computed(() =>
-  GRADES.filter((g) => !grades.value.some((x) => x.name === g)),
-);
 
 async function load(): Promise<void> {
   loading.value = true;
@@ -39,6 +48,8 @@ async function load(): Promise<void> {
     grades.value = g;
     teachers.value = t;
     sent.value = s;
+    // 勾选状态跟随服务端实际年级，避免本地与服务端不一致
+    selected.value = g.map((x) => x.name).sort((a, b) => GRADES.indexOf(a) - GRADES.indexOf(b));
     if (!notice.gradeId && g.length > 0) notice.gradeId = g[0].id;
   } catch (err) {
     error.value = (err as Error).message;
@@ -57,24 +68,40 @@ function roleText(roles: string[]): string {
   return roles.map((r) => STAFF_LABELS[r as StaffRole] ?? r).join(' · ');
 }
 
-async function createGrade(): Promise<void> {
+function toggleGradeName(name: string): void {
+  const i = selected.value.indexOf(name);
+  if (i >= 0) selected.value.splice(i, 1);
+  else selected.value.push(name);
+}
+
+function applyPreset(names: string[]): void {
   error.value = '';
   tip.value = '';
-  const name = newGrade.name.trim();
-  if (!name) {
-    error.value = '请选择要新增的年级';
+  selected.value = [...names];
+}
+
+function isPresetActive(names: string[]): boolean {
+  if (names.length !== selected.value.length) return false;
+  return names.every((n) => selected.value.includes(n));
+}
+
+/** 保存年级设置：新增缺少的、删除多余的（有班级/学生的年级后端会拒绝） */
+async function saveGrades(): Promise<void> {
+  error.value = '';
+  tip.value = '';
+  if (selected.value.length === 0) {
+    error.value = '请至少保留一个年级';
     return;
   }
-  creating.value = true;
+  saving.value = true;
   try {
-    await orgApi.createGrade({ schoolId: auth.user?.schoolId ?? '', name });
-    tip.value = `已新增「${name}」`;
-    newGrade.name = '';
+    const res = await orgApi.configureGrades(selected.value);
+    tip.value = `已保存：共 ${res.total} 个年级（新增 ${res.added}，移除 ${res.removed}）`;
     await load();
   } catch (err) {
     error.value = (err as Error).message;
   } finally {
-    creating.value = false;
+    saving.value = false;
   }
 }
 
@@ -175,17 +202,47 @@ onMounted(load);
     <div v-if="tip" class="alert alert-info">{{ tip }}</div>
 
     <section class="card stack">
-      <h2 class="section-title">新增年级</h2>
-      <div class="inline-form">
-        <select v-model="newGrade.name" class="input">
-          <option value="">选择年级…</option>
-          <option v-for="g in availableGrades" :key="g" :value="g">{{ g }}</option>
-        </select>
-        <button class="btn btn-sm btn-primary" type="button" :disabled="creating" @click="createGrade">
-          {{ creating ? '新增中…' : '新增' }}
-        </button>
+      <div class="row wrap">
+        <h2 class="section-title">年级设置</h2>
+        <span class="badge badge-primary">当前 {{ grades.length }} 个年级</span>
       </div>
-      <p v-if="availableGrades.length === 0" class="text-xs text-faint">12 个标准年级已全部创建。</p>
+      <p class="text-xs text-faint">
+        按本校实际学段勾选年级：小学只有 6 个、初中 3 个、高中 3 个；保存后自动新增缺少的、移除多余的。
+        已有班级或学生的年级不会被移除（会提示先处理）。
+      </p>
+
+      <template v-if="canConfigure">
+        <div class="chips">
+          <button
+            v-for="p in PRESETS"
+            :key="p.key"
+            class="chip"
+            :class="{ active: isPresetActive(p.names) }"
+            type="button"
+            @click="applyPreset(p.names)"
+          >
+            {{ p.label }}
+          </button>
+        </div>
+        <div class="chips">
+          <button
+            v-for="g in GRADES"
+            :key="g"
+            class="chip"
+            :class="{ active: selected.includes(g) }"
+            type="button"
+            @click="toggleGradeName(g)"
+          >
+            {{ g }}
+          </button>
+        </div>
+        <button class="btn btn-primary self-start" type="button" :disabled="saving" @click="saveGrades">
+          {{ saving ? '保存中…' : `保存年级设置（${selected.length} 个）` }}
+        </button>
+      </template>
+      <p v-else class="alert alert-info">
+        年级设置由学校管理员按本校学段配置；平台管理员可查看各校年级，但需用对应学校管理员账号修改。
+      </p>
     </section>
 
     <section class="card stack">
@@ -263,6 +320,12 @@ onMounted(load);
 </template>
 
 <style scoped>
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .inline-form {
   display: flex;
   gap: 8px;

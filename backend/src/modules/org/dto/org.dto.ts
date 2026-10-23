@@ -1,5 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  ArrayNotEmpty,
+  IsArray,
   IsIn,
   IsNotEmpty,
   IsOptional,
@@ -42,8 +44,24 @@ export class CreateGradeDto {
   name: string;
 }
 
-export class CreateOrgClassDto {
-  @ApiProperty({ description: '年级 id' })
+/** 一次性设置学校的年级组合（如小学只保留一~六年级，共 6 个） */
+export class ConfigureGradesDto {
+  @ApiPropertyOptional({ description: '学校 id（学校管理员可省略，默认本校）' })
+  @IsOptional()
+  @IsString()
+  schoolId?: string;
+
+  @ApiProperty({
+    description: '要保留的年级名列表（12 个标准年级之一）',
+    example: ['一年级', '二年级', '三年级', '四年级', '五年级', '六年级'],
+  })
+  @IsArray()
+  @ArrayNotEmpty({ message: '至少保留一个年级' })
+  @IsString({ each: true })
+  names: string[];
+}
+
+export class CreateOrgClassDto {  @ApiProperty({ description: '年级 id' })
   @IsString()
   @IsNotEmpty()
   gradeId: string;

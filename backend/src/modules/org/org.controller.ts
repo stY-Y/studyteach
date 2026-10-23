@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -15,6 +16,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { OrgService } from './org.service';
 import {
   AppointStaffDto,
+  ConfigureGradesDto,
   CreateGradeDto,
   CreateNoticeDto,
   CreateOrgClassDto,
@@ -92,6 +94,13 @@ export class OrgController {
   @ApiOperation({ summary: '年级列表（年级管理员只看自己管理的年级）' })
   grades(@CurrentUser() user: AuthUser, @Query('schoolId') schoolId?: string) {
     return this.orgService.listGrades(user, schoolId);
+  }
+
+  @Put('grades/config')
+  @Roles(UserRole.ADMIN, UserRole.SCHOOL_ADMIN)
+  @ApiOperation({ summary: '设置学校的年级组合与个数（小学 6 / 初中 3 / 高中 3 / 完全中学 6 …）' })
+  configureGrades(@CurrentUser() user: AuthUser, @Body() dto: ConfigureGradesDto) {
+    return this.orgService.configureGrades(user, dto);
   }
 
   @Post('grades')

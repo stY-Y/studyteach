@@ -93,6 +93,12 @@ export const orgApi = {
     http.get<GradeRow[]>('/org/grades', { query: { schoolId } }),
   createGrade: (body: { schoolId: string; name: string }) =>
     http.post<GradeRow>('/org/grades', body),
+  /** 一次性设置学校年级组合与个数（如小学只留一~六年级） */
+  configureGrades: (names: string[], schoolId?: string) =>
+    http.put<{ added: number; removed: number; total: number; grades: GradeRow[] }>(
+      '/org/grades/config',
+      { names, schoolId },
+    ),
   deleteGrade: (id: string) => http.del<{ deleted: true }>(`/org/grades/${id}`),
   appointGradeAdmin: (id: string, userId: string) =>
     http.post(`/org/grades/${id}/admins`, { userId }),

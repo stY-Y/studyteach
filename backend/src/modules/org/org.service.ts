@@ -14,10 +14,12 @@ import { ClassMember } from '../classes/entities/class-member.entity';
 import { ClassRoom } from '../classes/entities/class-room.entity';
 import { School } from '../schools/entities/school.entity';
 import { User } from '../users/entities/user.entity';
+import { StudentProfile } from '../users/entities/student-profile.entity';
 import { Grade } from './entities/grade.entity';
 import { Notice } from './entities/notice.entity';
 import { StaffService } from './staff.service';
 import {
+  ConfigureGradesDto,
   CreateGradeDto,
   CreateNoticeDto,
   CreateOrgClassDto,
@@ -33,6 +35,7 @@ export class OrgService {
     @InjectRepository(ClassRoom) private readonly classes: Repository<ClassRoom>,
     @InjectRepository(ClassMember) private readonly members: Repository<ClassMember>,
     @InjectRepository(User) private readonly users: Repository<User>,
+    @InjectRepository(StudentProfile) private readonly profiles: Repository<StudentProfile>,
     @InjectRepository(Notice) private readonly notices: Repository<Notice>,
     private readonly staff: StaffService,
   ) {}
@@ -202,8 +205,69 @@ export class OrgService {
     return { deleted: true };
   }
 
-  async appointGradeAdmin(actor: AuthUser, gradeId: string, userId: string) {
-    const grade = await this.gradeOrThrow(gradeId);
+  /**
+   * 设置学校的年级个数（一次性配置年级组合）。
+   * 小学只有 6 个年级、初中 3 个、高中 3 个、完全中学 6 个……由学校管理员按本校学段勾选。
+   * 已存在班级或学生的年级不允许被移除，避免产生孤儿数据。
+   */
+  async configureGrades(actor: AuthUser, dto: ConfigureGradesDto) {
+    const schoolId = dto.schoolId ?? actor.schoolId;
+    if (!schoolId) throw new BadRequestException('缺少学校信息');
+    await this.schoolOrThrow(schoolId);
+    await this.assertSchoolScope(actor, schoolId);
+
+    const desired = [...new Set(dto.names.map((n) => n.trim()).filter(Boolean))];
+    if (desired.length === 0) throw new BadRequestException('请至少选择一个年级');
+    for (const name of desired) {
+      if (!STANDARD_GRADES.includes(name)) {
+        throw new BadRequestException(`不支持的年级：${name}`);
+      }
+    }
+
+    const existing = await this.grades.find({ where: { schoolId } });
+    const existingNames = new Set(existing.map((g) => g.name));
+
+    const toAdd = desired.filter((n) => !existingNames.has(n));
+    const toRemove = existing.filter((g) => !desired.includes(g.name));
+
+    // 有班级 / 有学生的年级不能直接删除
+    for (const grade of toRemove) {
+      const classCount = await this.classes.count({ where: { gradeId: grade.id } });
+      if (classCount > 0) {
+        throw new BadRequestException(
+          `${grade.name}下还有 ${classCount} 个班级，请先删除或转移班级再调整年级`,
+        );
+      }
+      const studentCount = await this.profiles.count({ where: { schoolId, grade: grade.name } });
+      if (studentCount > 0) {
+        throw new BadRequestException(
+          `${grade.name}下还有 ${studentCount} 名学生，请先调整学生年级再调整年级`,
+        );
+      }
+    }
+
+    for (const name of toAdd) {
+      await this.grades.save(
+        this.grades.create({
+          schoolId,
+          name,
+          order: STANDARD_GRADES.indexOf(name),
+        }),
+      );
+    }
+    for (const grade of toRemove) {
+      await this.grades.delete(grade.id);
+    }
+
+    return {
+      added: toAdd.length,
+      removed: toRemove.length,
+      total: desired.length,
+      grades: await this.listGrades(actor, schoolId),
+    };
+  }
+
+  async appointGradeAdmin(actor: AuthUser, gradeId: string, userId: string) {    const grade = await this.gradeOrThrow(gradeId);
     return this.staff.appointGradeAdmin(actor, grade, userId);
   }
 
