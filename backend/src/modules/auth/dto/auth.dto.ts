@@ -112,3 +112,25 @@ export class PhoneLoginDto {
   @MinLength(6)
   password: string;
 }
+/**
+ * 忘记密码：手机号 + 验证码 + 新密码。
+ * 验证码与注册共用同一套服务（6 位、5 分钟、5 次尝试、60 秒冷却）。
+ */
+export class ResetPasswordByPhoneDto {
+  @ApiProperty({ description: '注册时使用的手机号（11 位）', example: '13800138000' })
+  @IsString()
+  @Matches(PHONE_PATTERN, { message: '请输入正确的 11 位手机号' })
+  phone: string;
+
+  @ApiProperty({ description: '手机号收到的 6 位验证码' })
+  @IsString()
+  @Matches(/^\d{6}$/, { message: '验证码为 6 位数字' })
+  code: string;
+
+  @ApiProperty({ description: '新密码：8-32 位，需同时包含字母与数字' })
+  @IsString()
+  @Matches(/^(?=.*[A-Za-z])(?=.*\d).{8,32}$/, {
+    message: '密码需 8-32 位，且同时包含字母和数字',
+  })
+  password: string;
+}

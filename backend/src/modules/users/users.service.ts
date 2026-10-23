@@ -365,7 +365,11 @@ export class UsersService {
     if (dto.oldPassword === dto.newPassword) {
       throw new BadRequestException('新密码不能与原密码相同');
     }
-    await this.users.update(userId, { passwordHash: this.hashPassword(dto.newPassword) });
+    await this.users.update(userId, {
+      passwordHash: this.hashPassword(dto.newPassword),
+      // 令牌版本 +1：其他设备上的旧令牌立即失效，必须用新密码重新登录
+      tokenVersion: (user.tokenVersion ?? 0) + 1,
+    });
     return { updated: true };
   }
 
@@ -535,8 +539,22 @@ export class UsersService {
       throw new BadRequestException('密码需 8-32 位，且同时包含字母和数字');
     }
 
-    await this.users.update(targetId, { passwordHash: this.hashPassword(plain) });
+    await this.users.update(targetId, {
+      passwordHash: this.hashPassword(plain),
+      // 重置密码后旧令牌立即失效（账号可能已泄露）
+      tokenVersion: (user.tokenVersion ?? 0) + 1,
+    });
     return { username: user.username, password: plain };
+  }
+
+  /** 凭手机号验证码重置密码（验证码由 AuthService 先行校验） */
+  async resetPasswordByPhone(userId: string, newPassword: string): Promise<void> {
+    const user = await this.findById(userId);
+    if (!user) throw new NotFoundException('账号不存在');
+    await this.users.update(userId, {
+      passwordHash: this.hashPassword(newPassword),
+      tokenVersion: (user.tokenVersion ?? 0) + 1,
+    });
   }
 
   /** 停用 / 启用账号（停用后立即无法登录，旧令牌失效） */

@@ -231,10 +231,16 @@ async function changePassword(): Promise<void> {
       oldPassword: oldPassword.value,
       newPassword: newPassword.value,
     });
-    pwdTip.value = '密码已修改，下次登录请使用新密码。';
     oldPassword.value = '';
     newPassword.value = '';
     confirmNew.value = '';
+    // 后端把令牌版本 +1，所有旧令牌（含当前设备）立即失效；
+    // 这里主动退出，避免用户继续操作时满屏「登录状态已失效」
+    pwdTip.value = '密码已修改，正在退出登录，请用新密码重新登录…';
+    window.setTimeout(() => {
+      auth.logout();
+      void router.replace({ name: 'login' });
+    }, 1200);
   } catch (err) {
     pwdError.value = (err as Error).message;
   } finally {

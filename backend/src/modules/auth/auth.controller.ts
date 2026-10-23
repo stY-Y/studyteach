@@ -10,6 +10,7 @@ import {
   PhoneLoginDto,
   PhoneRegisterDto,
   RegisterDto,
+  ResetPasswordByPhoneDto,
   SendSmsCodeDto,
 } from './dto/auth.dto';
 
@@ -54,6 +55,22 @@ export class AuthController {
   @ApiOperation({ summary: '手机号 + 密码登录（统一错误信息，防账号枚举）' })
   loginByPhone(@Body() dto: PhoneLoginDto) {
     return this.authService.loginByPhone(dto);
+  }
+
+  @Public()
+  @Post('password/send-code')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @ApiOperation({ summary: '忘记密码：发送重置验证码（不暴露手机号是否注册）' })
+  sendResetCode(@Body() dto: SendSmsCodeDto) {
+    return this.authService.sendResetCode(dto.phone);
+  }
+
+  @Public()
+  @Post('password/reset')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @ApiOperation({ summary: '忘记密码：验证码重置密码（成功后旧令牌全部失效）' })
+  resetPassword(@Body() dto: ResetPasswordByPhoneDto) {
+    return this.authService.resetPasswordByPhone(dto);
   }
 
   @Patch('phone')

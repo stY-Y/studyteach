@@ -43,6 +43,11 @@ export class JwtAuthGuard implements CanActivate {
     if (user.status === 'disabled') {
       throw new UnauthorizedException('账号已被停用，请联系平台管理员');
     }
+    // 令牌版本校验：修改/重置密码后，此前签发的令牌全部失效
+    const tokenVersion = typeof payload.v === 'number' ? payload.v : 0;
+    if ((user.tokenVersion ?? 0) !== tokenVersion) {
+      throw new UnauthorizedException('登录状态已失效（密码已变更），请重新登录');
+    }
 
     // 岗位与角色实时取自数据库：任命/卸任后无需重新登录即刻生效
     const staff = await this.usersService.staffContext(user.id);

@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -13,6 +14,7 @@ import {
   PhoneLoginDto,
   PhoneRegisterDto,
   RegisterDto,
+  ResetPasswordByPhoneDto,
 } from './dto/auth.dto';
 import { SmsCodeService } from './sms-code.service';
 
@@ -30,6 +32,7 @@ export class AuthService {
     role: string;
     name?: string;
     schoolId?: string | null;
+    tokenVersion?: number;
   }) {
     return {
       id: user.id,
@@ -37,6 +40,8 @@ export class AuthService {
       role: user.role,
       name: user.name,
       schoolId: user.schoolId,
+      /** v = 令牌版本，改密码后旧令牌版本不匹配即失效 */
+      v: user.tokenVersion ?? 0,
     };
   }
 
@@ -53,6 +58,7 @@ export class AuthService {
     role: string;
     name?: string;
     schoolId?: string | null;
+    tokenVersion?: number;
   }) {
     const base = this.buildPayload(user);
     const staff = await this.usersService.staffContext(user.id);
@@ -95,6 +101,43 @@ export class AuthService {
     const payload = await this.payloadWithStaff(user);
     const token = await this.jwtService.signAsync(payload);
     return { token, user: payload };
+  }
+
+  /**
+   * 忘记密码 —— 发送验证码。
+   *
+   * 统一响应结构、统一冷却：未注册的号码也走同一路径，避免本接口被用来枚举手机号。
+   * devCode 只在「该号码已注册」时透出，避免开发联调时误以为验证码发丢了。
+   * （接入真实短信网关后，建议对未注册号码也发通用文案短信，或改用其他防枚举手段）
+   */
+  async sendResetCode(phone: string): Promise<{
+    sent: true;
+    cooldownSeconds: number;
+    devCode: string | null;
+  }> {
+    const user = await this.usersService.findByPhone(phone);
+    // 未注册号码也占用同一套冷却并返回同样的结构：本接口不能用来枚举手机号
+    const result = this.smsCode.send(phone);
+    return {
+      sent: true,
+      cooldownSeconds: result.cooldownSeconds,
+      // 开发模式只对已注册号码透出验证码，省得联调时以为码没发出去
+      devCode: user ? result.devCode : null,
+    };
+  }
+
+  /**
+   * 忘记密码 —— 验证码重置。
+   * 先验码（证明手机号归属）再查号，未注册时才提示「尚未注册」，不构成枚举风险。
+   */
+  async resetPasswordByPhone(dto: ResetPasswordByPhoneDto) {
+    this.smsCode.verify(dto.phone, dto.code);
+
+    const user = await this.usersService.findByPhone(dto.phone);
+    if (!user) throw new NotFoundException('该手机号尚未注册');
+
+    await this.usersService.resetPasswordByPhone(user.id, dto.password);
+    return { reset: true, username: user.username };
   }
 
   // ---------- 手机号注册 / 登录（隐私优先） ----------

@@ -197,6 +197,10 @@ export class HomeworkService {
     if (homework.status !== 'open') {
       throw new BadRequestException('作业已截止，无法提交');
     }
+    // 截止时间到点即视为关闭（教师未手动截止也不会让超期提交钻空子）
+    if (homework.dueAt && homework.dueAt.getTime() < Date.now()) {
+      throw new BadRequestException('已过于截止时间，无法提交；如需补交请联系老师');
+    }
 
     const answers = dto.answers ?? {};
     const score = this.grade(homework, answers);

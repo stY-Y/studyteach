@@ -49,6 +49,13 @@ export class User {
   @Column({ type: 'varchar', length: 16, default: 'active' })
   status: string;
 
+  /**
+   * 令牌版本：修改/重置密码后 +1，使此前签发的所有令牌立即失效。
+   * 避免「密码已改，但泄露的旧令牌还能用 7 天」。
+   */
+  @Column({ name: 'token_version', type: 'int', default: 0 })
+  tokenVersion: number;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

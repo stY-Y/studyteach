@@ -34,6 +34,13 @@ const router = createRouter({
       meta: { public: true, title: '注册' },
     },
     {
+      // 忘记密码：手机号验证码自助重置（公开页面）
+      path: '/forgot-password',
+      name: 'forgotPassword',
+      component: () => import('../views/ForgotPasswordView.vue'),
+      meta: { public: true, title: '找回密码' },
+    },
+    {
       path: '/',
       component: () => import('../layouts/AppLayout.vue'),
       children: [

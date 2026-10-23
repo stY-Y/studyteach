@@ -35,6 +35,8 @@ export interface RegisterPayload {
 export interface SendCodeResult {
   cooldownSeconds: number;
   devCode: string | null;
+  /** 忘记密码接口额外返回，恒为 true（不暴露手机号是否注册） */
+  sent?: boolean;
 }
 
 /** 手机号注册入参 */
@@ -76,6 +78,14 @@ export const authApi = {
   /** 换绑手机号（新手机号验证码校验） */
   changePhone: (phone: string, code: string) =>
     http.patch<{ updated: true }>('/auth/phone', { phone, code }),
+
+  /** 忘记密码：发送重置验证码（不暴露手机号是否注册） */
+  sendResetCode: (phone: string) =>
+    http.post<SendCodeResult>('/auth/password/send-code', { phone }),
+
+  /** 忘记密码：验证码重置密码（成功后旧令牌全部失效） */
+  resetPasswordByPhone: (payload: { phone: string; code: string; password: string }) =>
+    http.post<{ reset: true; username: string }>('/auth/password/reset', payload),
 
   me: () => http.get<AuthUser>('/auth/me'),
 

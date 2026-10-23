@@ -182,6 +182,10 @@ async function onSubmit(): Promise<void> {
           />
         </div>
 
+        <p class="forgot-entry">
+          <RouterLink :to="{ name: 'forgotPassword' }" class="forgot-link">忘记密码？</RouterLink>
+        </p>
+
         <button class="btn btn-primary btn-block" type="submit" :disabled="auth.loading">
           {{ auth.loading ? '登录中…' : '登 录' }}
         </button>
@@ -379,6 +383,18 @@ async function onSubmit(): Promise<void> {
 
 .hint {
   line-height: 1.6;
+}
+
+.forgot-entry {
+  margin-top: -6px;
+  text-align: right;
+}
+
+.forgot-link {
+  font-size: 13px;
+  color: var(--c-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .register-entry {
