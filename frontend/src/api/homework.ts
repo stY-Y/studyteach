@@ -19,6 +19,8 @@ export interface Homework {
   id: string;
   teacherId: string;
   teacherName?: string | null;
+  /** 所属班级 id（作业只在对应班级聊天内可见） */
+  classId: string;
   schoolId: string;
   grade: string;
   className: string;

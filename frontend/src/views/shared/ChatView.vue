@@ -4,6 +4,7 @@ import { RouterLink } from 'vue-router';
 import { UserRole } from '@teachstudy/shared';
 import { chatApi, type ChatMessage } from '../../api/chat';
 import { classesApi } from '../../api/classes';
+import HomeworkPanel from '../../components/homework/HomeworkPanel.vue';
 import { useAuthStore } from '../../stores/auth';
 
 const auth = useAuthStore();
@@ -146,6 +147,9 @@ onUnmounted(() => {
           <span class="badge badge-primary">{{ classes[0]?.name }}</span>
           <span class="text-sm text-soft">本班专属频道</span>
         </section>
+
+        <!-- 作业：发布与提交都在班级聊天内完成 -->
+        <HomeworkPanel :class-id="classId" :is-teacher="!isStudent" />
 
         <section class="card chat-card">
           <div ref="listEl" class="message-list">

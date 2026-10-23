@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import { UserRole } from '@teachstudy/shared';
 import {
   classesApi,
@@ -12,6 +13,7 @@ import { gradeLabel } from '../../config/labels';
 import { useAuthStore } from '../../stores/auth';
 
 const auth = useAuthStore();
+const router = useRouter();
 
 const loading = ref(true);
 const error = ref('');
@@ -31,6 +33,10 @@ const GRADES = Array.from({ length: 12 }, (_, i) => gradeLabel(i + 1));
 /** 成员管理 */
 const expandedId = ref('');
 const memberView = ref<{ classRoom: ClassRoom; members: ClassMemberItem[] } | null>(null);
+
+/** 转班：学生 id -> 目标班级 id */
+const transferTarget = reactive<Record<string, string>>({});
+let pollTimer: number | null = null;
 
 const isStudent = computed(() => auth.user?.role === UserRole.STUDENT);
 const isAdmin = computed(() => auth.user?.role === UserRole.ADMIN);
@@ -70,14 +76,47 @@ async function load(): Promise<void> {
   }
 }
 
+/** 轮询审核状态：一旦老师通过，自动进入班级聊天 */
+function pollApproval(classId: string): void {
+  stopPoll();
+  pollTimer = window.setInterval(async () => {
+    try {
+      const data = await classesApi.mine();
+      mine.value = data;
+      const approved = data.student.some(
+        (s) => s.classRoom.id === classId && s.status === 'approved',
+      );
+      if (approved) {
+        stopPoll();
+        tip.value = '老师已通过你的申请，正在进入班级聊天…';
+        await router.replace({ name: 'chat' });
+      }
+    } catch {
+      /* 轮询失败忽略，等待下一次 */
+    }
+  }, 5000);
+}
+
+function stopPoll(): void {
+  if (pollTimer !== null) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+}
+
+function enterChat(): void {
+  void router.replace({ name: 'chat' });
+}
+
 async function applyJoin(classId: string): Promise<void> {
   error.value = '';
   tip.value = '';
   acting.value = classId;
   try {
     await classesApi.join(classId);
-    tip.value = '已提交申请，等待老师审核通过后即可使用班级聊天与作业';
+    tip.value = '已提交申请，老师审核通过后会自动进入班级聊天';
     await load();
+    pollApproval(classId);
   } catch (err) {
     error.value = (err as Error).message;
   } finally {
@@ -95,10 +134,11 @@ async function applyByCode(): Promise<void> {
   }
   acting.value = 'code';
   try {
-    await classesApi.joinByCode(code);
+    const member = await classesApi.joinByCode(code);
     inviteCode.value = '';
-    tip.value = '已提交申请，请等待老师审核';
+    tip.value = '已提交申请，老师审核通过后会自动进入班级聊天';
     await load();
+    pollApproval(member.classId);
   } catch (err) {
     error.value = (err as Error).message;
   } finally {
@@ -168,6 +208,29 @@ async function removeMember(classId: string, studentId: string): Promise<void> {
   }
 }
 
+/** 转班可选目标：本人管理的、除当前班以外的班级 */
+function transferOptions(currentId: string) {
+  return mine.value.teacher.filter((t) => t.id !== currentId);
+}
+
+async function doTransfer(classId: string, studentId: string): Promise<void> {
+  const target = transferTarget[studentId];
+  if (!target) {
+    error.value = '请先选择目标班级';
+    return;
+  }
+  error.value = '';
+  try {
+    await classesApi.transfer(classId, studentId, target);
+    transferTarget[studentId] = '';
+    memberView.value = await classesApi.members(classId);
+    await load();
+    tip.value = '已转班：学生档案与班级权限已同步到新班级';
+  } catch (err) {
+    error.value = (err as Error).message;
+  }
+}
+
 onMounted(async () => {
   if (!isStudent.value) {
     schools.value = await schoolsApi.list().catch(() => []);
@@ -175,6 +238,8 @@ onMounted(async () => {
   }
   await load();
 });
+
+onUnmounted(stopPoll);
 </script>
 
 <template>
@@ -213,7 +278,14 @@ onMounted(async () => {
           >
             重新申请
           </button>
-          <span v-if="item.status === 'approved'" class="text-xs text-faint">已可使用聊天与作业</span>
+          <button
+            v-if="item.status === 'approved'"
+            class="btn btn-sm btn-primary"
+            type="button"
+            @click="enterChat"
+          >
+            进入班级聊天
+          </button>
         </div>
       </section>
 
@@ -300,14 +372,29 @@ onMounted(async () => {
                 <button class="btn btn-sm btn-primary" type="button" @click="review(m.id, 'approved')">通过</button>
                 <button class="btn btn-sm" type="button" @click="review(m.id, 'rejected')">拒绝</button>
               </template>
-              <button
-                v-else-if="m.status === 'approved'"
-                class="btn btn-sm"
-                type="button"
-                @click="removeMember(c.id, m.studentId)"
-              >
-                移出班级
-              </button>
+              <template v-else-if="m.status === 'approved'">
+                <select
+                  v-if="transferOptions(c.id).length"
+                  v-model="transferTarget[m.studentId]"
+                  class="input transfer-select"
+                >
+                  <option value="">转班到…</option>
+                  <option v-for="t in transferOptions(c.id)" :key="t.id" :value="t.id">
+                    {{ t.name }}
+                  </option>
+                </select>
+                <button
+                  v-if="transferOptions(c.id).length"
+                  class="btn btn-sm"
+                  type="button"
+                  @click="doTransfer(c.id, m.studentId)"
+                >
+                  转班
+                </button>
+                <button class="btn btn-sm" type="button" @click="removeMember(c.id, m.studentId)">
+                  移出班级
+                </button>
+              </template>
             </div>
           </div>
         </div>
@@ -394,5 +481,12 @@ onMounted(async () => {
 
 .text-warn {
   color: #b45309;
+}
+
+.transfer-select {
+  width: 132px;
+  flex: none;
+  min-height: 32px;
+  font-size: 13px;
 }
 </style>

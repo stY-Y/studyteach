@@ -32,6 +32,13 @@ export class JoinByCodeDto {
   inviteCode: string;
 }
 
+export class TransferMemberDto {
+  @ApiProperty({ description: '目标班级 id（须为本人管理的班级）' })
+  @IsString()
+  @IsNotEmpty()
+  targetClassId: string;
+}
+
 export class ReviewMemberDto {
   @ApiProperty({ enum: ['approved', 'rejected'], description: '审核结果' })
   @IsIn(['approved', 'rejected'], { message: '审核结果只能是 approved 或 rejected' })

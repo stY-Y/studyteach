@@ -4,7 +4,12 @@ import { UserRole } from '@teachstudy/shared';
 import { AuthUser, CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { ClassesService } from './classes.service';
-import { CreateClassDto, JoinByCodeDto, ReviewMemberDto } from './dto/class.dto';
+import {
+  CreateClassDto,
+  JoinByCodeDto,
+  ReviewMemberDto,
+  TransferMemberDto,
+} from './dto/class.dto';
 
 @ApiTags('班级')
 @Controller('classes')
@@ -65,6 +70,18 @@ export class ClassesController {
     @Body() dto: ReviewMemberDto,
   ) {
     return this.classesService.review(user, id, memberId, dto.status);
+  }
+
+  @Post(':id/members/:studentId/transfer')
+  @Roles(UserRole.TEACHER, UserRole.ADMIN)
+  @ApiOperation({ summary: '教师转班：把学生转到自己管理的另一个班级' })
+  transfer(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Param('studentId') studentId: string,
+    @Body() dto: TransferMemberDto,
+  ) {
+    return this.classesService.transferMember(user, id, studentId, dto.targetClassId);
   }
 
   @Delete(':id/members/:studentId')

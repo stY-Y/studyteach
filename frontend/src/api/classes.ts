@@ -71,4 +71,11 @@ export const classesApi = {
   /** 移除成员 / 学生退出 */
   removeMember: (classId: string, studentId: string) =>
     http.del<{ removed: true }>(`/classes/${classId}/members/${studentId}`),
+
+  /** 教师转班：把学生转到自己管理的另一个班级 */
+  transfer: (classId: string, studentId: string, targetClassId: string) =>
+    http.post<{ transferred: true; classId: string }>(
+      `/classes/${classId}/members/${studentId}/transfer`,
+      { targetClassId },
+    ),
 };

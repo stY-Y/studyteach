@@ -128,6 +128,56 @@ export class ClassesService {
     return { removed: true };
   }
 
+  /**
+   * 转班：教师把已通过的学生转到自己管理的另一个班级。
+   * 转移成员记录并同步学生档案（classId / 学校 / 年级 / 班级名）。
+   */
+  async transferMember(
+    actor: AuthUser,
+    classId: string,
+    studentId: string,
+    targetClassId: string,
+  ): Promise<{ transferred: true; classId: string }> {
+    if (targetClassId === classId) {
+      throw new BadRequestException('目标班级不能与原班级相同');
+    }
+
+    const from = await this.getClassOrThrow(classId);
+    const to = await this.getClassOrThrow(targetClassId);
+    await this.assertManager(actor, from);
+    await this.assertManager(actor, to);
+    if (to.status !== 'active') throw new BadRequestException('目标班级已停用');
+
+    const member = await this.memberRepo.findOne({ where: { classId, studentId } });
+    if (!member || member.status !== 'approved') {
+      throw new BadRequestException('该学生不在此班级（或尚未通过审核）');
+    }
+
+    const target = await this.memberRepo.findOne({
+      where: { classId: targetClassId, studentId },
+    });
+    if (target) {
+      if (target.status === 'approved') throw new ConflictException('学生已在目标班级');
+      target.status = 'approved';
+      target.reviewedAt = new Date();
+      await this.memberRepo.save(target);
+    } else {
+      await this.memberRepo.save(
+        this.memberRepo.create({
+          classId: targetClassId,
+          studentId,
+          studentName: member.studentName,
+          status: 'approved',
+          reviewedAt: new Date(),
+        }),
+      );
+    }
+
+    await this.memberRepo.remove(member);
+    await this.bindStudentProfile(studentId, to);
+    return { transferred: true, classId: targetClassId };
+  }
+
   // ---------- 学生：申请与查询 ----------
 
   /** 学生：我已加入/申请中的班级 */
