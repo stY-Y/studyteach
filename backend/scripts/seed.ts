@@ -30,7 +30,7 @@ import { ClassRoom } from '../src/modules/classes/entities/class-room.entity';
 import { ClassMember } from '../src/modules/classes/entities/class-member.entity';
 import { StudentProfile } from '../src/modules/users/entities/student-profile.entity';
 import { StorageService } from '../src/infra/storage/storage.service';
-import { ResourceStatus } from '@teachstudy/shared';
+import { ResourceStatus, StudyStage } from '@teachstudy/shared';
 
 import {
   SEED_COLLEGES,
@@ -104,6 +104,7 @@ async function main(): Promise<void> {
     const codeToId = await seedKnowledgePoints(ds);
     await seedSchools(ds);
     await seedQuestions(ds, codeToId);
+    await backfillQuestionClassify(ds);
     await seedColleges(ds);
     await seedEnrollment(ds);
     await seedUsers(app);
@@ -242,6 +243,147 @@ async function seedQuestions(ds: DataSource, codeToId: Map<string, string>): Pro
       }),
     );
     stats.questionInserted += 1;
+  }
+}
+
+const CN_NUM: Record<string, number> = {
+  一: 1,
+  二: 2,
+  三: 3,
+  四: 4,
+  五: 5,
+  六: 6,
+  七: 7,
+  八: 8,
+  九: 9,
+  十: 10,
+};
+
+/** 从文本里提取年级（如「一年级：…」「二、三年级：…」），提取不到返回 null */
+function extractGrade(text: string | undefined | null): number | null {
+  if (!text) return null;
+  const matched = text.match(/([一二三四五六七八九十]|\d{1,2})\s*年级/);
+  if (!matched) return null;
+  const raw = matched[1];
+  const value = /^\d+$/.test(raw) ? Number(raw) : CN_NUM[raw];
+  return value || null;
+}
+
+/** 学段兜底年级：小学按高段 5 年级，初中 7 年级，高中 10 年级 */
+function defaultGrade(stage: StudyStage): number {
+  if (stage === StudyStage.PRIMARY_HIGH) return 5;
+  if (stage === StudyStage.JUNIOR) return 7;
+  return 10;
+}
+
+/**
+ * 章节 → 年级映射（key 为 `学段|章节名`）。
+ * 种子题按「知识树顶层章节」归类，这里给出每个章节所属年级，保证 1-10 年级都能筛到题。
+ * 教师新录入的题目直接选择年级，不依赖此表。
+ */
+const CHAPTER_GRADE: Record<string, number> = {
+  // 小学语文
+  'primary_high|汉语拼音': 1,
+  'primary_high|识字与写字': 1,
+  'primary_high|词语与句子': 2,
+  'primary_high|积累与阅读': 3,
+  // 小学数学
+  'primary_high|20 以内的数': 1,
+  'primary_high|表内乘除法': 2,
+  'primary_high|万以内的数与三位数加减': 3,
+  'primary_high|图形的周长与面积': 3,
+  'primary_high|分数的初步认识': 3,
+  'primary_high|数与代数': 5,
+  'primary_high|图形与几何': 5,
+  'primary_high|统计与概率': 5,
+  'primary_high|典型应用题': 6,
+  'primary_high|比与比例': 6,
+  // 小学英语
+  'primary_high|字母与语音': 3,
+  'primary_high|基础词汇': 3,
+  'primary_high|情景交际': 3,
+  'primary_high|词汇': 4,
+  'primary_high|句型': 4,
+  'primary_high|日常交际用语': 4,
+  'primary_high|时态': 6,
+  // 初中数学
+  'junior|有理数': 7,
+  'junior|整式': 7,
+  'junior|一元一次方程': 7,
+  'junior|图形认识初步': 7,
+  'junior|二元一次方程组': 8,
+  'junior|不等式与不等式组': 8,
+  'junior|一次函数': 8,
+  'junior|分式': 8,
+  'junior|因式分解': 8,
+  'junior|数据的分析': 8,
+  // 初中物理
+  'junior|声现象': 8,
+  'junior|物态变化': 8,
+  'junior|光现象': 8,
+  // 初中英语
+  'junior|词法': 7,
+  'junior|时态': 8,
+  'junior|从句': 9,
+  'junior|非谓语与情态动词': 9,
+  // 高中
+  'senior|集合与函数': 10,
+  'senior|三角函数': 10,
+  'senior|力学': 10,
+  'senior|运动学': 10,
+};
+
+/**
+ * 题库三级分类回填：年级（第 1 层）+ 章节（第 3 层）。
+ * 章节取题目关联知识点的「顶层祖先」名称（知识树顶层即章节），年级从知识点描述推断。
+ */
+async function backfillQuestionClassify(ds: DataSource): Promise<void> {
+  const kpRepo = ds.getRepository(KnowledgePoint);
+  const qRepo = ds.getRepository(Question);
+
+  const points = await kpRepo.find();
+  const byId = new Map(points.map((k) => [k.id, k]));
+
+  const questions = await qRepo.find();
+  let updated = 0;
+
+  for (const q of questions) {
+    if (q.grade && q.chapter) continue;
+
+    // 知识点向上追溯：链尾是章节（顶层节点），链上任一级有年级描述就采用
+    const chain: KnowledgePoint[] = [];
+    let cursor = q.knowledgePoints?.[0] ? byId.get(q.knowledgePoints[0]) : undefined;
+    let guard = 0;
+    while (cursor && guard < 10) {
+      chain.push(cursor);
+      cursor = cursor.parentId ? byId.get(cursor.parentId) : undefined;
+      guard += 1;
+    }
+
+    const chapter = chain.length ? chain[chain.length - 1].name : null;
+    let grade = q.grade ?? null;
+
+    // 优先级：章节映射 > 知识点描述 > 学段兜底
+    if (!grade && chapter) {
+      grade = CHAPTER_GRADE[`${q.stage}|${chapter}`] ?? null;
+    }
+    if (!grade) {
+      for (const node of chain) {
+        const found = extractGrade(node.description);
+        if (found) {
+          grade = found;
+          break;
+        }
+      }
+    }
+    if (!grade) grade = defaultGrade(q.stage);
+
+    await qRepo.update(q.id, { grade, chapter: q.chapter ?? chapter });
+    updated += 1;
+  }
+
+  if (updated > 0) {
+    console.log(`  题目三级分类回填：${updated} 道（年级 / 章节）\n`);
   }
 }
 

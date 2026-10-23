@@ -13,6 +13,10 @@ import { CreateQuestionDto, UpdateQuestionDto } from './dto/question.dto';
 export interface QuestionQuery {
   subject?: Subject;
   stage?: StudyStage;
+  /** 年级（题库第 1 层） */
+  grade?: number;
+  /** 章节（题库第 3 层） */
+  chapter?: string;
   type?: QuestionType;
   difficulty?: DifficultyLevel;
   knowledgePointId?: string;
@@ -28,16 +32,55 @@ export class QuestionsService {
   ) {}
 
   async search(query: QuestionQuery) {
-    const { subject, stage, type, difficulty, knowledgePointId, page = 1, pageSize = 20 } = query;
+    const {
+      subject,
+      stage,
+      grade,
+      chapter,
+      type,
+      difficulty,
+      knowledgePointId,
+      page = 1,
+      pageSize = 20,
+    } = query;
     const qb = this.repo.createQueryBuilder('q').where('q.status = :status', { status: 'approved' });
     if (subject) qb.andWhere('q.subject = :subject', { subject });
     if (stage) qb.andWhere('q.stage = :stage', { stage });
+    if (grade) qb.andWhere('q.grade = :grade', { grade });
+    if (chapter) qb.andWhere('q.chapter = :chapter', { chapter });
     if (type) qb.andWhere('q.type = :type', { type });
     if (difficulty) qb.andWhere('q.difficulty = :difficulty', { difficulty });
     if (knowledgePointId) qb.andWhere('q.knowledgePoints LIKE :kp', { kp: `%${knowledgePointId}%` });
     qb.orderBy('q.createdAt', 'DESC').skip((page - 1) * pageSize).take(pageSize);
     const [list, total] = await qb.getManyAndCount();
     return { list, total, page, pageSize };
+  }
+
+  /**
+   * 章节列表（题库第 3 层）：按年级/科目筛选后去重返回，附题目数。
+   * 供题库三级筛选与作业选题使用。
+   */
+  async chapters(
+    grade?: number,
+    subject?: Subject,
+  ): Promise<Array<{ chapter: string; count: number }>> {
+    const qb = this.repo
+      .createQueryBuilder('q')
+      .select('q.chapter', 'chapter')
+      .addSelect('COUNT(*)', 'count')
+      .where('q.status = :status', { status: 'approved' })
+      .andWhere('q.chapter IS NOT NULL')
+      .andWhere("q.chapter <> ''");
+
+    if (grade) qb.andWhere('q.grade = :grade', { grade });
+    if (subject) qb.andWhere('q.subject = :subject', { subject });
+
+    const rows = await qb
+      .groupBy('q.chapter')
+      .orderBy('q.chapter', 'ASC')
+      .getRawMany<{ chapter: string; count: string | number }>();
+
+    return rows.map((r) => ({ chapter: r.chapter, count: Number(r.count) }));
   }
 
   async findById(id: string): Promise<Question> {

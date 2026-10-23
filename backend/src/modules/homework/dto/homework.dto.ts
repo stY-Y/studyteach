@@ -3,11 +3,14 @@ import {
   ArrayMinSize,
   IsArray,
   IsEnum,
+  IsInt,
   IsNotEmpty,
   IsObject,
   IsOptional,
   IsString,
+  Max,
   MaxLength,
+  Min,
 } from 'class-validator';
 import { DifficultyLevel, QuestionType, StudyStage, Subject } from '@teachstudy/shared';
 
@@ -60,6 +63,19 @@ export class HomeworkQuestionDto {
   @IsOptional()
   @IsEnum(StudyStage)
   stage?: StudyStage;
+
+  @ApiPropertyOptional({ description: '年级 1-12（不传则按班级年级推断）' })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(12)
+  grade?: number;
+
+  @ApiPropertyOptional({ description: '章节（题库第 3 层）' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  chapter?: string;
 
   @ApiPropertyOptional({ type: [String], description: '关联知识点 id' })
   @IsOptional()

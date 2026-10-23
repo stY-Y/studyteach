@@ -21,13 +21,32 @@ export class QuestionsController {
   search(
     @Query('subject') subject?: Subject,
     @Query('stage') stage?: StudyStage,
+    @Query('grade') grade?: string,
+    @Query('chapter') chapter?: string,
     @Query('type') type?: QuestionType,
     @Query('difficulty') difficulty?: DifficultyLevel,
     @Query('knowledgePointId') knowledgePointId?: string,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
     @Query('pageSize', new DefaultValuePipe(20), ParseIntPipe) pageSize?: number,
   ) {
-    return this.questionsService.search({ subject, stage, type, difficulty, knowledgePointId, page, pageSize });
+    return this.questionsService.search({
+      subject,
+      stage,
+      grade: grade ? Number(grade) : undefined,
+      chapter,
+      type,
+      difficulty,
+      knowledgePointId,
+      page,
+      pageSize,
+    });
+  }
+
+  // 必须声明在 :id 之前，避免 "chapters" 被当成题目 id
+  @Get('chapters')
+  @ApiOperation({ summary: '章节列表（题库第 3 层，按年级/科目筛选）' })
+  chapters(@Query('grade') grade?: string, @Query('subject') subject?: Subject) {
+    return this.questionsService.chapters(grade ? Number(grade) : undefined, subject);
   }
 
   @Get(':id')

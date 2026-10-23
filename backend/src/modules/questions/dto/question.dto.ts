@@ -2,9 +2,13 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsArray,
   IsEnum,
+  IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
+  Max,
+  MaxLength,
+  Min,
 } from 'class-validator';
 import {
   AbilityRequirement,
@@ -22,6 +26,19 @@ export class CreateQuestionDto {
   @ApiProperty({ enum: StudyStage })
   @IsEnum(StudyStage)
   stage: StudyStage;
+
+  @ApiPropertyOptional({ description: '年级 1-12（题库第 1 层分类）' })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(12)
+  grade?: number;
+
+  @ApiPropertyOptional({ description: '章节（题库第 3 层分类）' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  chapter?: string;
 
   @ApiProperty({ enum: QuestionType })
   @IsEnum(QuestionType)
@@ -71,6 +88,19 @@ export class CreateQuestionDto {
 }
 
 export class UpdateQuestionDto {
+  @ApiPropertyOptional({ description: '年级 1-12' })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(12)
+  grade?: number;
+
+  @ApiPropertyOptional({ description: '章节' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  chapter?: string;
+
   @ApiPropertyOptional({ enum: DifficultyLevel })
   @IsOptional()
   @IsEnum(DifficultyLevel)

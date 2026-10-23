@@ -27,6 +27,14 @@ export class Question {
   @Column({ type: 'varchar', length: 32 })
   stage: StudyStage;
 
+  /** 年级（1-12）：题库三级分类的第 1 层 */
+  @Column({ type: 'int', nullable: true })
+  grade: number | null;
+
+  /** 章节：题库三级分类的第 3 层（一般取知识点的顶层节点名） */
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  chapter: string | null;
+
   @Column({ type: 'varchar', length: 32 })
   type: QuestionType;
 

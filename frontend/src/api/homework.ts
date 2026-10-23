@@ -54,6 +54,10 @@ export interface HomeworkQuestionInput {
   difficulty?: DifficultyLevel;
   subject?: Subject;
   stage?: StudyStage;
+  /** 年级 1-12（自建题入库时使用，不传按班级年级推断） */
+  grade?: number;
+  /** 章节（自建题入库时使用） */
+  chapter?: string;
   knowledgePoints?: string[];
 }
 

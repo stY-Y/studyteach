@@ -9,22 +9,33 @@ import {
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { knowledgeApi } from '../../api/knowledge';
-import { questionsApi, type BankQuestion } from '../../api/questions';
+import {
+  questionsApi,
+  type BankQuestion,
+  type ChapterItem,
+} from '../../api/questions';
 import {
   DIFFICULTY_LABELS,
   difficultyLabel,
+  gradeLabel,
+  inferStageFromGrade,
   QUESTION_TYPE_LABELS,
   questionTypeLabel,
-  stageLabel,
-  STAGE_OPTIONS,
   subjectLabel,
   SUBJECT_OPTIONS,
 } from '../../config/labels';
 
+
 const router = useRouter();
 
-const stage = ref<StudyStage>(StudyStage.JUNIOR);
+/** 三级筛选：年级（第 1 层）→ 科目（第 2 层）→ 章节（第 3 层） */
+const grade = ref(8);
 const subject = ref<Subject>(Subject.MATH);
+const chapter = ref<string | undefined>(undefined);
+const chapters = ref<ChapterItem[]>([]);
+const stage = computed(
+  () => inferStageFromGrade(gradeLabel(grade.value)) ?? StudyStage.JUNIOR,
+);
 const type = ref<QuestionType | undefined>(undefined);
 const difficulty = ref<DifficultyLevel | undefined>(undefined);
 
@@ -54,6 +65,7 @@ const form = ref({
 });
 const kpList = ref<Array<{ id: string; name: string }>>([]);
 const formKp = ref<string[]>([]);
+const formChapter = ref('');
 
 const ABILITY_OPTIONS: Array<{ value: AbilityRequirement; label: string }> = [
   { value: AbilityRequirement.MEMORY, label: '识记' },
@@ -86,8 +98,9 @@ async function search(): Promise<void> {
   error.value = '';
   try {
     const res = await questionsApi.search({
+      grade: grade.value,
       subject: subject.value,
-      stage: stage.value,
+      chapter: chapter.value,
       type: type.value,
       difficulty: difficulty.value,
       page: page.value,
@@ -107,6 +120,43 @@ async function search(): Promise<void> {
 function refresh(): void {
   page.value = 1;
   tip.value = '';
+  void search();
+}
+
+/** 加载当前年级+科目的章节（第 3 层） */
+async function loadChapters(): Promise<void> {
+  try {
+    chapters.value = await questionsApi.chapters({
+      grade: grade.value,
+      subject: subject.value,
+    });
+  } catch {
+    chapters.value = [];
+  }
+}
+
+/** 切年级会换学段/科目内容，章节与分页一起重置 */
+function onGradeChange(): void {
+  chapter.value = undefined;
+  page.value = 1;
+  formKp.value = [];
+  void loadChapters();
+  void loadKps();
+  void search();
+}
+
+function onSubjectChange(): void {
+  chapter.value = undefined;
+  page.value = 1;
+  formKp.value = [];
+  void loadChapters();
+  void loadKps();
+  void search();
+}
+
+function selectChapter(value?: string): void {
+  chapter.value = value;
+  page.value = 1;
   void search();
 }
 
@@ -142,6 +192,8 @@ async function create(): Promise<void> {
     await questionsApi.create({
       subject: subject.value,
       stage: stage.value,
+      grade: grade.value,
+      chapter: formChapter.value.trim() || chapter.value || undefined,
       type: form.value.type,
       difficulty: form.value.difficulty,
       ability: form.value.ability,
@@ -165,7 +217,9 @@ async function create(): Promise<void> {
       typicalErrorsText: '',
     };
     formKp.value = [];
+    formChapter.value = '';
     showForm.value = false;
+    await loadChapters();
     await search();
   } catch (err) {
     createError.value = (err as Error).message;
@@ -192,11 +246,8 @@ function goHome(): void {
   void router.push({ name: 'home' });
 }
 
-watch([subject, stage], () => {
-  void loadKps();
-});
-
 onMounted(() => {
+  void loadChapters();
   void loadKps();
   void search();
 });
@@ -246,8 +297,19 @@ onMounted(() => {
           </select>
         </div>
         <div class="field">
-          <label class="field-label">当前学段 / 学科</label>
-          <div class="input static-field">{{ stageLabel(stage) }} · {{ subjectLabel(subject) }}</div>
+          <label class="field-label">年级 / 学科</label>
+          <div class="input static-field">{{ gradeLabel(grade) }} · {{ subjectLabel(subject) }}</div>
+        </div>
+        <div class="field">
+          <label class="field-label" for="q-chapter">章节（第 3 层分类）</label>
+          <input
+            id="q-chapter"
+            v-model.trim="formChapter"
+            class="input"
+            type="text"
+            maxlength="64"
+            :placeholder="chapter || '如：有理数、一元一次方程'"
+          />
         </div>
       </div>
 
@@ -298,14 +360,41 @@ onMounted(() => {
     <section class="card">
       <h2 class="section-title">检索题目</h2>
 
-      <div class="chips">
-        <button v-for="s in STAGE_OPTIONS" :key="s.value" type="button" class="chip" :class="{ active: stage === s.value }" @click="stage = s.value; refresh()">
-          {{ s.label }}
-        </button>
+      <!-- 第 1 层：年级；第 2 层：科目 -->
+      <div class="filter-row">
+        <label class="filter-item">
+          <span class="filter-label">年级</span>
+          <select v-model.number="grade" class="input" @change="onGradeChange">
+            <option v-for="g in 12" :key="g" :value="g">{{ gradeLabel(g) }}</option>
+          </select>
+        </label>
+        <label class="filter-item">
+          <span class="filter-label">科目</span>
+          <select v-model="subject" class="input" @change="onSubjectChange">
+            <option v-for="s in SUBJECT_OPTIONS" :key="s.value" :value="s.value">{{ s.label }}</option>
+          </select>
+        </label>
       </div>
+
+      <!-- 第 3 层：章节 -->
       <div class="chips">
-        <button v-for="s in SUBJECT_OPTIONS" :key="s.value" type="button" class="chip" :class="{ active: subject === s.value }" @click="subject = s.value; refresh()">
-          {{ s.label }}
+        <button
+          type="button"
+          class="chip"
+          :class="{ active: chapter === undefined }"
+          @click="selectChapter(undefined)"
+        >
+          全部章节
+        </button>
+        <button
+          v-for="c in chapters"
+          :key="c.chapter"
+          type="button"
+          class="chip"
+          :class="{ active: chapter === c.chapter }"
+          @click="selectChapter(c.chapter)"
+        >
+          {{ c.chapter }}（{{ c.count }}）
         </button>
       </div>
       <div class="chips">
@@ -359,7 +448,9 @@ onMounted(() => {
             <span class="q-no">{{ (page - 1) * PAGE_SIZE + i + 1 }}</span>
             <span class="badge">{{ questionTypeLabel(q.type) }}</span>
             <span class="badge badge-primary">{{ difficultyLabel(q.difficulty) }}</span>
-            <span class="badge">{{ stageLabel(q.stage) }} · {{ subjectLabel(q.subject) }}</span>
+            <span class="badge">
+              {{ q.grade ? gradeLabel(q.grade) : gradeLabel(grade) }} · {{ subjectLabel(q.subject) }}<template v-if="q.chapter"> · {{ q.chapter }}</template>
+            </span>
           </div>
           <p class="q-content">{{ q.content }}</p>
           <ul v-if="q.options?.length" class="q-options">
@@ -394,6 +485,27 @@ onMounted(() => {
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 10px;
+}
+
+.filter-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.filter-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 160px;
+}
+
+.filter-label {
+  flex: none;
+  font-size: 13px;
+  color: var(--c-text-soft);
 }
 
 .form-grid {

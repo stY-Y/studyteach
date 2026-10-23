@@ -9,10 +9,10 @@ import {
 } from '../../api/homework';
 import { questionsApi, type BankQuestion } from '../../api/questions';
 import {
+  gradeLabel,
   optionLetter,
   questionTypeLabel,
   SUBJECT_OPTIONS,
-  STAGE_OPTIONS,
   subjectLabel,
 } from '../../config/labels';
 
@@ -38,7 +38,9 @@ const submitting = ref(false);
 const showForm = ref(false);
 const form = reactive({ title: '', description: '', dueAt: '' });
 const draftItems = ref<Array<{ input: HomeworkQuestionInput; label: string }>>([]);
-const bankQuery = reactive({ subject: '', stage: '' });
+/** 题库三级筛选：年级 → 科目 → 章节 */
+const bankQuery = reactive({ grade: 8, subject: '', chapter: '' });
+const bankChapters = ref<Array<{ chapter: string; count: number }>>([]);
 const bankList = ref<BankQuestion[]>([]);
 const bankLoading = ref(false);
 const custom = reactive({
@@ -47,6 +49,7 @@ const custom = reactive({
   options: '',
   answer: '',
   analysis: '',
+  chapter: '',
 });
 const creating = ref(false);
 const viewing = ref<{ homework: Homework; submissions: HomeworkSubmission[] } | null>(null);
@@ -128,13 +131,26 @@ async function submitHomework(): Promise<void> {
 }
 
 // ---------- 教师 ----------
+/** 章节列表（第 3 层），随年级/科目变化 */
+async function loadBankChapters(): Promise<void> {
+  try {
+    bankChapters.value = await questionsApi.chapters({
+      grade: bankQuery.grade,
+      subject: (bankQuery.subject || undefined) as never,
+    });
+  } catch {
+    bankChapters.value = [];
+  }
+}
+
 async function searchBank(): Promise<void> {
   bankLoading.value = true;
   error.value = '';
   try {
     const result = await questionsApi.search({
+      grade: bankQuery.grade,
       subject: (bankQuery.subject || undefined) as never,
-      stage: (bankQuery.stage || undefined) as never,
+      chapter: bankQuery.chapter || undefined,
       page: 1,
       pageSize: 20,
     });
@@ -182,7 +198,8 @@ function addCustom(): void {
       answer: custom.answer.trim() || undefined,
       analysis: custom.analysis.trim() || undefined,
       subject: (bankQuery.subject || undefined) as never,
-      stage: (bankQuery.stage || undefined) as never,
+      grade: bankQuery.grade,
+      chapter: custom.chapter.trim() || bankQuery.chapter || undefined,
     },
     label: `【自建】${content.slice(0, 30)}${content.length > 30 ? '…' : ''}`,
   });
@@ -191,6 +208,7 @@ function addCustom(): void {
   custom.options = '';
   custom.answer = '';
   custom.analysis = '';
+  custom.chapter = '';
 }
 
 function removeDraft(index: number): void {
@@ -264,7 +282,19 @@ watch(
   },
 );
 
-onMounted(load);
+// 年级/科目变化时刷新章节列表
+watch(
+  () => [bankQuery.grade, bankQuery.subject],
+  () => {
+    bankQuery.chapter = '';
+    void loadBankChapters();
+  },
+);
+
+onMounted(() => {
+  void load();
+  void loadBankChapters();
+});
 </script>
 
 <template>
@@ -417,13 +447,18 @@ onMounted(load);
         <div class="sub-block">
           <h4 class="sub-title">从题库选题</h4>
           <div class="filter-row">
-            <select v-model="bankQuery.stage" class="input">
-              <option value="">全部学段</option>
-              <option v-for="s in STAGE_OPTIONS" :key="s.value" :value="s.value">{{ s.label }}</option>
+            <select v-model.number="bankQuery.grade" class="input">
+              <option v-for="g in 12" :key="g" :value="g">{{ gradeLabel(g) }}</option>
             </select>
             <select v-model="bankQuery.subject" class="input">
               <option value="">全部学科</option>
               <option v-for="s in SUBJECT_OPTIONS" :key="s.value" :value="s.value">{{ s.label }}</option>
+            </select>
+            <select v-model="bankQuery.chapter" class="input">
+              <option value="">全部章节</option>
+              <option v-for="c in bankChapters" :key="c.chapter" :value="c.chapter">
+                {{ c.chapter }}（{{ c.count }}）
+              </option>
             </select>
             <button class="btn btn-sm" type="button" :disabled="bankLoading" @click="searchBank">
               {{ bankLoading ? '检索中…' : '检索' }}
@@ -451,6 +486,13 @@ onMounted(load);
             <input v-model="custom.answer" class="input" type="text" placeholder="参考答案，如 A / 正确" />
           </div>
           <textarea v-model="custom.options" class="input" rows="2" placeholder="选项（每行一个，选择题填写）" />
+          <input
+            v-model="custom.chapter"
+            class="input"
+            type="text"
+            maxlength="64"
+            placeholder="章节（可选，如：一元一次方程）"
+          />
           <textarea v-model="custom.analysis" class="input" rows="1" placeholder="解析（可选）" />
           <button class="btn btn-sm" type="button" @click="addCustom">加入作业</button>
         </div>

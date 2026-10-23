@@ -29,6 +29,29 @@ const AUTO_TYPES: string[] = [
   QuestionType.TRUE_FALSE,
 ];
 
+const CN_NUM: Record<string, number> = {
+  一: 1,
+  二: 2,
+  三: 3,
+  四: 4,
+  五: 5,
+  六: 6,
+  七: 7,
+  八: 8,
+  九: 9,
+  十: 10,
+};
+
+/** 从班级年级文本（如「八年级」）解析出数字年级 */
+function parseGrade(text: string | null | undefined): number | undefined {
+  if (!text) return undefined;
+  const matched = text.match(/([一二三四五六七八九十]|\d{1,2})\s*年级/);
+  if (!matched) return undefined;
+  const raw = matched[1];
+  const value = /^\d+$/.test(raw) ? Number(raw) : CN_NUM[raw];
+  return value || undefined;
+}
+
 @Injectable()
 export class HomeworkService {
   constructor(
@@ -66,6 +89,8 @@ export class HomeworkService {
       const created = await this.questions.create({
         subject: item.subject ?? Subject.MATH,
         stage: item.stage ?? StudyStage.JUNIOR,
+        grade: item.grade ?? parseGrade(room.grade),
+        chapter: item.chapter?.trim() || undefined,
         type: item.type ?? QuestionType.SHORT_ANSWER,
         difficulty: item.difficulty ?? DifficultyLevel.MEDIUM,
         ability: AbilityRequirement.UNDERSTAND,
