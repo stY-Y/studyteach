@@ -351,6 +351,8 @@ export class OrgService {
     if (members > 0) throw new BadRequestException('该班级还有已加入的学生，请先移除学生');
 
     await this.members.delete({ classId: room.id });
+    // 班级通知随班级一并清理
+    await this.classes.manager.query('DELETE FROM class_notices WHERE class_id = ?', [room.id]);
     await this.classes.delete(room.id);
     return { deleted: true };
   }

@@ -457,6 +457,11 @@ export class UsersService {
       await m.query('UPDATE class_rooms SET teacher_id = ? WHERE teacher_id = ?', ['unassigned', userId]);
       // 教学公共资产保留，仅解除个人关联
       await m.query('UPDATE resources SET owner_id = ? WHERE owner_id = ?', ['deleted-user', userId]);
+      // 班级通知属班级公共信息，保留正文，只解除发布人关联
+      await m.query('UPDATE class_notices SET from_user_id = ? WHERE from_user_id = ?', [
+        'deleted-user',
+        userId,
+      ]);
       await m.query('DELETE FROM users WHERE id = ?', [userId]);
     });
   }

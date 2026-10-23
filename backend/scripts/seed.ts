@@ -28,6 +28,7 @@ import { Resource } from '../src/modules/resources/entities/resource.entity';
 import { School } from '../src/modules/schools/entities/school.entity';
 import { ClassRoom } from '../src/modules/classes/entities/class-room.entity';
 import { ClassMember } from '../src/modules/classes/entities/class-member.entity';
+import { ClassNotice } from '../src/modules/class-notice/entities/class-notice.entity';
 import { StudentProfile } from '../src/modules/users/entities/student-profile.entity';
 import { Grade } from '../src/modules/org/entities/grade.entity';
 import { StaffAppointment } from '../src/modules/org/entities/staff-appointment.entity';
@@ -719,6 +720,43 @@ async function seedDemoClass(ds: DataSource, app: INestApplicationContext): Prom
       className: room.className,
     });
   }
+
+  // 演示班级通知：学生一进班级就能看到「置顶 + 普通」两种通知
+  const noticeRepo = ds.getRepository(ClassNotice);
+  const demoNotices = [
+    {
+      title: '本周五下午第三节开班会',
+      content:
+        '地点：本班教室。\n内容：① 上周作业情况小结 ② 期中考复习安排 ③ 安全提醒（上下学路上注意车辆）。\n请同学们提前 2 分钟回教室，不要迟到。',
+      pinned: true,
+    },
+    {
+      title: '数学作业提交方式说明',
+      content:
+        '作业在「本班作业」里直接作答提交，客观题会自动判分，简答题老师第二天批改。\n如果家里没有网络，可以先写在作业本上，第二天交给老师。',
+      pinned: false,
+    },
+  ];
+
+  let noticeCreated = 0;
+  for (const item of demoNotices) {
+    const exists = await noticeRepo.findOne({ where: { classId: room.id, title: item.title } });
+    if (exists) continue;
+    await noticeRepo.save(
+      noticeRepo.create({
+        classId: room.id,
+        schoolId: room.schoolId,
+        title: item.title,
+        content: item.content,
+        pinned: item.pinned,
+        fromUserId: teacher.id,
+        fromName: teacher.name,
+        fromRole: StaffRole.CLASS_ADMIN,
+      }),
+    );
+    noticeCreated += 1;
+  }
+  if (noticeCreated > 0) console.log(`  已创建 ${noticeCreated} 条演示班级通知\n`);
 }
 
 void main().catch((e) => {

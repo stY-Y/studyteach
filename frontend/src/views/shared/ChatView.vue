@@ -5,6 +5,7 @@ import { UserRole } from '@teachstudy/shared';
 import { chatApi, type ChatMessage } from '../../api/chat';
 import { classesApi } from '../../api/classes';
 import HomeworkPanel from '../../components/homework/HomeworkPanel.vue';
+import ClassNoticePanel from '../../components/notice/ClassNoticePanel.vue';
 import { useAuthStore } from '../../stores/auth';
 
 const auth = useAuthStore();
@@ -119,7 +120,7 @@ onUnmounted(() => {
   <div class="stack">
     <h1 class="page-title">班级聊天</h1>
     <p class="text-soft text-sm">
-      仅本班已通过审核的同学与班主任可见，不支持私聊；请文明交流，消息会留存以便管理。
+      仅本班已通过审核的同学与班主任可见，不支持私聊；班级通知、作业与群聊都在这里完成。
     </p>
 
     <div v-if="error" class="alert alert-danger">{{ error }}</div>
@@ -151,6 +152,9 @@ onUnmounted(() => {
           <span class="badge badge-primary">{{ classes[0]?.name }}</span>
           <span class="text-sm text-soft">本班专属频道</span>
         </section>
+
+        <!-- 班级通知：班主任发布，学生只读；有未读时自动展开 -->
+        <ClassNoticePanel :class-id="classId" :is-teacher="!isStudent" />
 
         <!-- 作业：发布与提交都在班级聊天内完成 -->
         <HomeworkPanel :class-id="classId" :is-teacher="!isStudent" />
