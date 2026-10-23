@@ -35,6 +35,7 @@ import { ChatModule } from './modules/chat/chat.module';
 import { HomeworkModule } from './modules/homework/homework.module';
 import { ParentChatModule } from './modules/parent-chat/parent-chat.module';
 import { ClassNoticeModule } from './modules/class-notice/class-notice.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { OrgModule } from './modules/org/org.module';
 
 @Module({
@@ -97,6 +98,7 @@ import { OrgModule } from './modules/org/org.module';
     HomeworkModule,
     ParentChatModule,
     ClassNoticeModule,
+    DashboardModule,
     OrgModule,
   ],
   controllers: [AppController],

@@ -92,6 +92,24 @@ export class AdminSetStatusDto {
   status: 'active' | 'disabled';
 }
 
+/**
+ * 学生年级批量升级：把某校某个年级的所有学生升到下一个年级。
+ * 仅平台管理员 / 学校管理员可操作。
+ */
+export class PromoteGradeDto {
+  @ApiProperty({ description: '学校 id' })
+  @IsString()
+  @IsNotEmpty()
+  schoolId: string;
+
+  @ApiProperty({
+    description: '要升级的年级（如「八年级」）。其下学生统一升到下一级；最高年级无法升级',
+  })
+  @IsString()
+  @IsNotEmpty()
+  grade: string;
+}
+
 export class ChangePasswordDto {  @ApiProperty({ description: '原密码' })
   @IsString()
   @IsNotEmpty()

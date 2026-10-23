@@ -23,6 +23,7 @@ import {
   AdminUpdateUserDto,
   ChangePasswordDto,
   CreateUserDto,
+  PromoteGradeDto,
   StudentProfileDto,
   TeacherProfileDto,
   UpdateProfileDto,
@@ -30,6 +31,22 @@ import {
 
 /** 强密码：8-32 位，且同时包含字母与数字 */
 const PASSWORD_RE = /^(?=.*[A-Za-z])(?=.*\d).{8,32}$/;
+
+/** 标准 12 年级顺序（与 org 模块保持一致），用于年级升级判定 */
+const STANDARD_GRADE_ORDER = [
+  '一年级',
+  '二年级',
+  '三年级',
+  '四年级',
+  '五年级',
+  '六年级',
+  '七年级',
+  '八年级',
+  '九年级',
+  '高一',
+  '高二',
+  '高三',
+];
 import { AuthUser } from '../../common/decorators/current-user.decorator';
 import { CryptoService } from '../../common/security/crypto.service';
 
@@ -555,6 +572,53 @@ export class UsersService {
       passwordHash: this.hashPassword(newPassword),
       tokenVersion: (user.tokenVersion ?? 0) + 1,
     });
+  }
+
+  /**
+   * 学生年级批量升级：把某校某个年级的所有学生升到下一级。
+   * 升级后学生自动退出原班级（年级变了），需重新申请新年级的班级。
+   * 最高年级（高三）无法升级。
+   */
+  async promoteGrade(
+    actor: AuthUser,
+    dto: PromoteGradeDto,
+  ): Promise<{ promoted: number; from: string; to: string | null; skipped: number }> {
+    const from = dto.grade.trim();
+    const idx = STANDARD_GRADE_ORDER.indexOf(from);
+    if (idx < 0) throw new BadRequestException(`无法识别的年级：${from}`);
+    if (idx >= STANDARD_GRADE_ORDER.length - 1) {
+      throw new BadRequestException(`${from}已是最高年级，无法再升级`);
+    }
+    const to = STANDARD_GRADE_ORDER[idx + 1];
+
+    const profiles = await this.studentProfiles.find({
+      where: { schoolId: dto.schoolId, grade: from },
+    });
+    if (profiles.length === 0) {
+      return { promoted: 0, from, to, skipped: 0 };
+    }
+
+    let promoted = 0;
+    let skipped = 0;
+    await this.dataSource.transaction(async () => {
+      for (const p of profiles) {
+        // 已在班级里：升级 = 退班（年级变了，需要重新申请新年级的班级）
+        if (p.classId) {
+          await this.dataSource
+            .getRepository(ClassMember)
+            .delete({ classId: p.classId, studentId: p.userId });
+        }
+        // 年级变更同时清空班级归属（年级变了需重新申请新班级）
+        await this.studentProfiles.update(p.id, { grade: to });
+        await this.dataSource.query(
+          'UPDATE student_profiles SET class_id = NULL, class_name = NULL WHERE id = ?',
+          [p.id],
+        );
+        promoted += 1;
+      }
+    });
+
+    return { promoted, from, to, skipped };
   }
 
   /** 停用 / 启用账号（停用后立即无法登录，旧令牌失效） */

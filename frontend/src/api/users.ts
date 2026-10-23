@@ -195,6 +195,13 @@ export const usersApi = {
   adminStudentProfile: (id: string, body: { schoolId?: string; grade?: string }) =>
     http.put<StudentProfile>(`/users/${id}/student-profile`, body),
 
+  /** 年级批量升级：某校某年级所有学生升一级（自动退班） */
+  promoteGrade: (body: { schoolId: string; grade: string }) =>
+    http.post<{ promoted: number; from: string; to: string | null; skipped: number }>(
+      '/users/promote-grade',
+      body,
+    ),
+
   /** 管理员：用户列表（后端返回 [列表, 总数]） */
   list: (page = 1, pageSize = 20) =>
     http.get<[UserItem[], number]>('/users', { query: { page, pageSize } }),

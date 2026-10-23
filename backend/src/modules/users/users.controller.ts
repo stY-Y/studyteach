@@ -24,6 +24,7 @@ import {
   CreateUserDto,
   DeleteAccountDto,
   LinkParentDto,
+  PromoteGradeDto,
   StudentProfileDto,
   TeacherProfileDto,
   UpdateProfileDto,
@@ -193,5 +194,12 @@ export class UsersController {
     @Body() dto: StudentProfileDto,
   ) {
     return this.usersService.adminSaveStudentProfile(user, id, dto);
+  }
+
+  @Post('promote-grade')
+  @Roles(UserRole.ADMIN, UserRole.SCHOOL_ADMIN)
+  @ApiOperation({ summary: '学生年级批量升级：某校某年级所有学生升一级（自动退班，需重新入班）' })
+  promoteGrade(@CurrentUser() user: AuthUser, @Body() dto: PromoteGradeDto) {
+    return this.usersService.promoteGrade(user, dto);
   }
 }

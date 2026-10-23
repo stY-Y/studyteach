@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { UserRole } from '@teachstudy/shared';
 import { systemApi, type HealthResult } from '../api/auth';
+import { dashboardApi, type DashboardData } from '../api/dashboard';
 import { usersApi } from '../api/users';
 import ModuleCard from '../components/ModuleCard.vue';
 import { ROLE_CONFIG } from '../config/modules';
@@ -55,6 +56,43 @@ const healthError = ref('');
 const cacheCount = ref(offline.size());
 const cacheTip = ref('');
 
+/* ---------- 工作台看板（按角色聚合，让首页"活"起来） ---------- */
+const dash = ref<DashboardData | null>(null);
+
+/** 看板指标定义：字段 → 中文名 + 图标（不同角色字段不同，仅显示存在且有值的） */
+const DASH_METRICS: Array<{ key: string; label: string; icon: string }> = [
+  { key: 'schools', label: '学校', icon: '🏫' },
+  { key: 'grades', label: '年级', icon: '🏷️' },
+  { key: 'classes', label: '班级', icon: '🎒' },
+  { key: 'students', label: '学生', icon: '👦' },
+  { key: 'teachers', label: '教师', icon: '👩‍🏫' },
+  { key: 'parents', label: '家长', icon: '👨‍👩‍👧' },
+  { key: 'pending', label: '待审核入班', icon: '⏳' },
+  { key: 'resources', label: '资源', icon: '📚' },
+  { key: 'questions', label: '题目', icon: '🗂️' },
+  { key: 'diagnoses', label: '诊断次数', icon: '🧭' },
+  { key: 'gradings', label: '批改次数', icon: '✍️' },
+  { key: 'homeworks', label: '作业', icon: '📝' },
+  { key: 'notices', label: '通知', icon: '📢' },
+  { key: 'messages', label: '班级消息', icon: '💬' },
+  { key: 'reports', label: '学情报表', icon: '📈' },
+  { key: 'children', label: '绑定孩子', icon: '👦' },
+];
+
+const dashMetrics = computed(() => {
+  const d = dash.value;
+  if (!d) return [];
+  return DASH_METRICS.filter((m) => typeof d[m.key] === 'number');
+});
+
+async function loadDashboard(): Promise<void> {
+  try {
+    dash.value = await dashboardApi.overview();
+  } catch {
+    dash.value = null; // 看板失败不阻塞工作台，静默降级
+  }
+}
+
 async function checkHealth(): Promise<void> {
   health.value = 'checking';
   healthError.value = '';
@@ -77,6 +115,7 @@ function clearCache(): void {
 
 onMounted(async () => {
   void checkHealth();
+  void loadDashboard();
   // 旧缓存可能没有岗位字段（staffRoles），补一次，避免按岗位显示的入口被误隐藏
   if (auth.user && auth.user.staffRoles === undefined) {
     void auth.syncProfile();
@@ -104,6 +143,21 @@ onMounted(async () => {
     </section>
 
     <p class="welcome-line">欢迎回来，{{ auth.displayName }}。今天也一起加油吧 ☀️</p>
+
+    <!-- 工作台看板：按角色聚合的实时概览 -->
+    <section v-if="dashMetrics.length > 0" class="card">
+      <div class="row">
+        <span class="section-title">今日概览</span>
+        <span class="text-xs text-faint">数据实时统计</span>
+      </div>
+      <div class="dash-grid">
+        <div v-for="m in dashMetrics" :key="m.key" class="dash-item">
+          <span class="dash-icon">{{ m.icon }}</span>
+          <span class="dash-num">{{ dash?.[m.key] }}</span>
+          <span class="dash-label">{{ m.label }}</span>
+        </div>
+      </div>
+    </section>
 
     <!-- 后端连通性 -->
     <section class="card">
@@ -210,6 +264,47 @@ onMounted(async () => {
   font-size: 14px;
   color: var(--c-text-soft);
   padding: 0 6px;
+}
+
+/* ---------- 看板 ---------- */
+.dash-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.dash-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--c-surface-warm);
+  border: 1px solid var(--c-border);
+  border-radius: 12px;
+}
+
+.dash-icon {
+  font-size: 20px;
+  flex: none;
+}
+
+.dash-num {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--c-primary-dark);
+  font-variant-numeric: tabular-nums;
+}
+
+.dash-label {
+  font-size: 13px;
+  color: var(--c-text-soft);
+}
+
+@media (min-width: 640px) {
+  .dash-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 
 .grid-gap {

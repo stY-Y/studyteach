@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 import { orgApi, type GradeRow, type NoticeRow, type TeacherCandidate } from '../../api/org';
+import { usersApi } from '../../api/users';
 import { STAFF_LABELS, hasStaff } from '../../config/staff';
 import { useAuthStore } from '../../stores/auth';
 import { StaffRole, UserRole } from '@teachstudy/shared';
@@ -89,6 +90,41 @@ function applyPreset(names: string[]): void {
 function isPresetActive(names: string[]): boolean {
   if (names.length !== selected.value.length) return false;
   return names.every((n) => selected.value.includes(n));
+}
+
+/* ---------- 年级批量升级 ---------- */
+const promoteGrade = ref('');
+const promoting = ref(false);
+const promoteConfirm = ref('');
+const GRADES_UPGRADABLE = GRADES.slice(0, -1); // 最高年级（高三）不可升级
+
+async function doPromote(): Promise<void> {
+  error.value = '';
+  tip.value = '';
+  const from = promoteGrade.value;
+  if (!from) {
+    error.value = '请选择要升级的年级';
+    return;
+  }
+  if (promoteConfirm.value.trim() !== '确认升级') {
+    error.value = '请输入「确认升级」以继续（此操作不可撤销）';
+    return;
+  }
+  promoting.value = true;
+  try {
+    const schoolId = auth.user?.schoolId ?? '';
+    const res = await usersApi.promoteGrade({ schoolId, grade: from });
+    tip.value = res.promoted > 0
+      ? `已将 ${res.promoted} 名学生从「${res.from}」升至「${res.to}」，需重新申请班级`
+      : `「${from}」下暂无学生，无需升级`;
+    promoteGrade.value = '';
+    promoteConfirm.value = '';
+    await load();
+  } catch (err) {
+    error.value = (err as Error).message;
+  } finally {
+    promoting.value = false;
+  }
 }
 
 /** 保存年级设置：新增缺少的、删除多余的（有班级/学生的年级后端会拒绝） */
@@ -294,6 +330,30 @@ onMounted(() => {
           已满 {{ g.adminLimit }} 名，需先卸任一位才能任命新的年级管理员。
         </p>
       </div>
+    </section>
+
+    <section v-if="canConfigure" class="card stack">
+      <div class="row wrap">
+        <h2 class="section-title">年级升级（开学季批量升一级）</h2>
+        <span class="badge badge-warning">需二次确认</span>
+      </div>
+      <p class="text-xs text-faint">
+        把某个年级的所有学生升到下一级。升级后学生<b>自动退出原班级</b>，需重新申请新年级的班级；
+        最高年级（高三）不可升级。
+      </p>
+      <div class="inline-form">
+        <select v-model="promoteGrade" class="input">
+          <option value="">选择要升级的年级…</option>
+          <option v-for="g in GRADES_UPGRADABLE" :key="g" :value="g">{{ g }} → {{ GRADES[GRADES.indexOf(g) + 1] }}</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="field-label" for="promote-confirm">输入「确认升级」以继续</label>
+        <input id="promote-confirm" v-model.trim="promoteConfirm" class="input" type="text" placeholder="确认升级" />
+      </div>
+      <button class="btn btn-primary self-start" type="button" :disabled="promoting || !promoteGrade" @click="doPromote">
+        {{ promoting ? '升级中…' : '执行年级升级' }}
+      </button>
     </section>
 
     <section class="card stack">
