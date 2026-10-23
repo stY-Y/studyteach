@@ -6,8 +6,11 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { UserRole } from '@teachstudy/shared';
 import { UsersService } from '../users/users.service';
+import { LoginLog } from './entities/login-log.entity';
 import {
   ChangePhoneDto,
   LoginDto,
@@ -24,7 +27,20 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly smsCode: SmsCodeService,
+    @InjectRepository(LoginLog) private readonly loginLogs: Repository<LoginLog>,
   ) {}
+
+  /**
+   * 记一笔登录（供管理看板的日活统计使用）。
+   * 统计只是附属功能，写失败绝不能影响登录本身，所以这里静默兜住。
+   */
+  private async recordLogin(userId: string, role: string): Promise<void> {
+    try {
+      await this.loginLogs.save(this.loginLogs.create({ userId, role }));
+    } catch {
+      /* 日活统计不可用时不影响登录 */
+    }
+  }
 
   private buildPayload(user: {
     id: string;
@@ -81,6 +97,7 @@ export class AuthService {
       throw new UnauthorizedException('账号已被停用，请联系平台管理员');
     }
     const payload = await this.payloadWithStaff(user);
+    await this.recordLogin(user.id, user.role);
     const token = await this.jwtService.signAsync(payload);
     return { token, user: payload };
   }
@@ -99,6 +116,7 @@ export class AuthService {
 
     const user = await this.usersService.create(dto);
     const payload = await this.payloadWithStaff(user);
+    await this.recordLogin(user.id, user.role);
     const token = await this.jwtService.signAsync(payload);
     return { token, user: payload };
   }
@@ -185,6 +203,7 @@ export class AuthService {
     }
 
     const payload = await this.payloadWithStaff(user);
+    await this.recordLogin(user.id, user.role);
     return { token: await this.jwtService.signAsync(payload), user: payload };
   }
 

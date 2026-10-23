@@ -82,8 +82,22 @@ const DASH_METRICS: Array<{ key: string; label: string; icon: string }> = [
 const dashMetrics = computed(() => {
   const d = dash.value;
   if (!d) return [];
-  return DASH_METRICS.filter((m) => typeof d[m.key] === 'number');
+  return DASH_METRICS.filter((m) => typeof d[m.key] === 'number').map((m) => ({
+    key: m.key,
+    label: m.label,
+    icon: m.icon,
+    value: d[m.key] as number,
+  }));
 });
+
+/** 日活统计：只有管理端（平台/学校/年级/班级管理员）的看板会返回 */
+const activity = computed(() => dash.value?.activity ?? null);
+
+/** 柱状高度：以 7 日最高值为满格，0 也留一点底色便于看清 */
+function barHeight(count: number): string {
+  const max = Math.max(1, activity.value?.peak ?? 1);
+  return `${Math.max(6, Math.round((count / max) * 100))}%`;
+}
 
 async function loadDashboard(): Promise<void> {
   try {
@@ -153,8 +167,41 @@ onMounted(async () => {
       <div class="dash-grid">
         <div v-for="m in dashMetrics" :key="m.key" class="dash-item">
           <span class="dash-icon">{{ m.icon }}</span>
-          <span class="dash-num">{{ dash?.[m.key] }}</span>
+          <span class="dash-num">{{ m.value }}</span>
           <span class="dash-label">{{ m.label }}</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 日活统计：以登录为准，按自然日去重（管理端可见） -->
+    <section v-if="activity" class="card">
+      <div class="row">
+        <span class="section-title">日活统计</span>
+        <span class="text-xs text-faint">按登录去重，近 7 天</span>
+      </div>
+
+      <div class="act-summary">
+        <div class="act-figure">
+          <b>{{ activity.today }}</b>
+          <span>今日活跃</span>
+        </div>
+        <div class="act-figure act-figure-plain">
+          <b>{{ activity.yesterday }}</b>
+          <span>昨日</span>
+        </div>
+        <div class="act-figure act-figure-plain">
+          <b>{{ activity.peak }}</b>
+          <span>7 日最高</span>
+        </div>
+      </div>
+
+      <div class="act-chart">
+        <div v-for="p in activity.trend" :key="p.date" class="act-col">
+          <span class="act-count">{{ p.count }}</span>
+          <div class="act-track">
+            <div class="act-bar" :class="{ 'act-bar-zero': p.count === 0 }" :style="{ height: barHeight(p.count) }" />
+          </div>
+          <span class="act-label">{{ p.label }}</span>
         </div>
       </div>
     </section>
@@ -299,6 +346,91 @@ onMounted(async () => {
 .dash-label {
   font-size: 13px;
   color: var(--c-text-soft);
+}
+
+/* ---------- 日活统计 ---------- */
+.act-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.act-figure {
+  flex: 1 1 92px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  background: var(--c-surface-warm);
+  border: 1px solid var(--c-border);
+  border-radius: 12px;
+}
+
+.act-figure b {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--c-primary-dark);
+  font-variant-numeric: tabular-nums;
+}
+
+.act-figure span {
+  font-size: 12px;
+  color: var(--c-text-soft);
+}
+
+.act-figure-plain b {
+  color: var(--c-text);
+}
+
+.act-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.act-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.act-count {
+  font-size: 12px;
+  color: var(--c-text-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.act-track {
+  width: 100%;
+  height: 78px;
+  padding: 3px;
+  display: flex;
+  align-items: flex-end;
+  background: var(--c-surface-warm);
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  box-sizing: border-box;
+}
+
+.act-bar {
+  width: 100%;
+  background: var(--c-primary);
+  border-radius: 6px;
+}
+
+.act-bar-zero {
+  background: var(--c-border-strong);
+}
+
+.act-label {
+  font-size: 11px;
+  color: var(--c-text-faint);
+  white-space: nowrap;
 }
 
 @media (min-width: 640px) {

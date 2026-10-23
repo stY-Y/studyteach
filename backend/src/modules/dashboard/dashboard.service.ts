@@ -21,6 +21,36 @@ export interface Dashboard {
   [key: string]: unknown;
 }
 
+/** 趋势上的一个点：某天有多少人登录 */
+export interface ActivityPoint {
+  date: string;
+  label: string;
+  count: number;
+}
+
+/** 日活统计：以「登录」为口径，按自然日去重统计人数 */
+export interface ActivityStat {
+  today: number;
+  yesterday: number;
+  peak: number;
+  /** 近 7 天，从最早到今天 */
+  trend: ActivityPoint[];
+}
+
+const DAY_MS = 86_400_000;
+
+/** 把数据库取出的时间（sqlite 为 UTC 字符串，mysql 为 Date）统一成时间戳 */
+function tsOf(v: string | Date): number {
+  if (v instanceof Date) return v.getTime();
+  const s = String(v);
+  return Date.parse(s.includes('T') ? s : `${s.replace(' ', 'T')}Z`);
+}
+
+/** 时间戳 → 与库中 datetime 同格式的字符串（UTC），便于直接做字符串比较 */
+function dbStamp(t: number): string {
+  return new Date(t).toISOString().slice(0, 19).replace('T', ' ');
+}
+
 @Injectable()
 export class DashboardService {
   constructor(
@@ -34,6 +64,83 @@ export class DashboardService {
       .then((r: Array<{ c: number }>) => Number(r[0]?.c ?? 0));
   }
 
+  // ---------- 日活统计 ----------
+
+  /**
+   * 日活（DAU）统计。
+   *
+   * 口径：按「自然日 + 登录事件」去重统计人数——同一人一天内登录多次只算 1 人。
+   * 只认登录，不采集 IP / 设备 / 位置，够回答「今天有多少人在用」就好。
+   *
+   * @param whereSql 范围过滤（以 AND 开头；平台管理员传空串表示全平台）
+   */
+  private async activity(whereSql: string, params: unknown[] = []): Promise<ActivityStat> {
+    const now = new Date();
+    // 以本地时区的自然日切分（中国无夏令时，直接按 24h 推进即可）
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const start = todayStart - 6 * DAY_MS;
+
+    const rows = (await this.ds.query(
+      `SELECT l.user_id AS userId, l.created_at AS createdAt
+       FROM login_logs l
+       WHERE l.created_at >= ?${whereSql}`,
+      [dbStamp(start), ...params],
+    )) as Array<{ userId: string; createdAt: string | Date }>;
+
+    const buckets: Array<Set<string>> = Array.from({ length: 7 }, () => new Set<string>());
+    rows.forEach((r) => {
+      const t = tsOf(r.createdAt);
+      if (!Number.isFinite(t) || t < start) return;
+      const idx = Math.min(6, Math.max(0, Math.floor((t - start) / DAY_MS)));
+      buckets[idx].add(r.userId);
+    });
+
+    const trend = buckets.map((set, i) => {
+      const d = new Date(start + i * DAY_MS);
+      const mm = `${d.getMonth() + 1}`;
+      const dd = `${d.getDate()}`;
+      return {
+        date: `${d.getFullYear()}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`,
+        label: `${mm}/${dd}`,
+        count: set.size,
+      };
+    });
+
+    return {
+      today: buckets[6].size,
+      yesterday: buckets[5].size,
+      peak: trend.reduce((m, p) => Math.max(m, p.count), 0),
+      trend,
+    };
+  }
+
+  /** 全平台日活 */
+  private activityAll(): Promise<ActivityStat> {
+    return this.activity('', []);
+  }
+
+  /** 本校日活：本校账号（学生/教师） + 该校任命的管理员 */
+  private activityBySchools(schoolIds: string[]): Promise<ActivityStat> {
+    if (!schoolIds.length) return this.activity(' AND 1 = 0', []);
+    const ph = schoolIds.map(() => '?').join(',');
+    return this.activity(
+      ` AND (l.user_id IN (SELECT id FROM users WHERE school_id IN (${ph}))
+          OR l.user_id IN (SELECT user_id FROM staff_appointments WHERE school_id IN (${ph})))`,
+      [...schoolIds, ...schoolIds],
+    );
+  }
+
+  /** 本班/本年级日活：班级成员（学生） + 该班任命的班主任 */
+  private activityByClasses(classIds: string[]): Promise<ActivityStat> {
+    if (!classIds.length) return this.activity(' AND 1 = 0', []);
+    const ph = classIds.map(() => '?').join(',');
+    return this.activity(
+      ` AND (l.user_id IN (SELECT student_id FROM class_members WHERE status = 'approved' AND class_id IN (${ph}))
+          OR l.user_id IN (SELECT user_id FROM staff_appointments WHERE class_id IN (${ph})))`,
+      [...classIds, ...classIds],
+    );
+  }
+
   /** 平台管理员：全平台总览（机构与内容资产，不含师生日常活动量） */
   private async platform(): Promise<Dashboard> {
     const [
@@ -44,6 +151,7 @@ export class DashboardService {
       classes,
       resources,
       questions,
+      activity,
     ] = await Promise.all([
       this.count('SELECT COUNT(*) c FROM schools'),
       this.count(`SELECT COUNT(*) c FROM users WHERE role = 'student'`),
@@ -52,6 +160,7 @@ export class DashboardService {
       this.count('SELECT COUNT(*) c FROM class_rooms'),
       this.count(`SELECT COUNT(*) c FROM resources WHERE status = 'approved'`),
       this.count(`SELECT COUNT(*) c FROM questions WHERE status = 'approved'`),
+      this.activityAll(),
     ]);
     return {
       role: 'platform',
@@ -63,6 +172,7 @@ export class DashboardService {
       classes,
       resources,
       questions,
+      activity,
     };
   }
 
@@ -78,9 +188,11 @@ export class DashboardService {
     let teachers = 0;
     let classes = 0;
     let gradeCount = 0;
+    // 没有任何管理范围时不返回日活（前端据此隐藏卡片）
+    let activity: ActivityStat | null = null;
 
     if (schoolIds.length) {
-      [students, teachers, classes, gradeCount] = await Promise.all([
+      [students, teachers, classes, gradeCount, activity] = await Promise.all([
         this.count(
           `SELECT COUNT(*) c FROM student_profiles WHERE school_id IN (${schoolIds
             .map(() => '?')
@@ -103,6 +215,7 @@ export class DashboardService {
           `SELECT COUNT(*) c FROM grades WHERE school_id IN (${schoolIds.map(() => '?').join(',')})`,
           schoolIds,
         ),
+        this.activityBySchools(schoolIds),
       ]);
     } else if (gradeIds.length) {
       gradeCount = gradeIds.length;
@@ -116,19 +229,19 @@ export class DashboardService {
       )) as Array<{ id: string }>;
       const roomIds = roomRows.map((r) => r.id);
       if (roomIds.length) {
-        students = await this.count(
-          `SELECT COUNT(*) c FROM class_members WHERE status = 'approved' AND class_id IN (${roomIds
-            .map(() => '?')
-            .join(',')})`,
-          roomIds,
-        );
+        const ph = roomIds.map(() => '?').join(',');
+        [students, teachers, activity] = await Promise.all([
+          this.count(
+            `SELECT COUNT(*) c FROM class_members WHERE status = 'approved' AND class_id IN (${ph})`,
+            roomIds,
+          ),
+          this.count(
+            `SELECT COUNT(DISTINCT user_id) c FROM staff_appointments WHERE role = 'class_admin' AND class_id IN (${ph})`,
+            roomIds,
+          ),
+          this.activityByClasses(roomIds),
+        ]);
       }
-      teachers = await this.count(
-        `SELECT COUNT(DISTINCT user_id) c FROM staff_appointments WHERE role = 'class_admin' AND class_id IN (${roomIds
-          .map(() => '?')
-          .join(',')})`,
-        roomIds,
-      );
     }
 
     return {
@@ -139,6 +252,7 @@ export class DashboardService {
       classes,
       students,
       teachers,
+      activity,
     };
   }
 
@@ -155,10 +269,11 @@ export class DashboardService {
         homeworks: 0,
         notices: 0,
         messages: 0,
+        activity: null,
       };
     }
     const ph = classIds.map(() => '?').join(',');
-    const [students, pending, homeworks, notices, messages] = await Promise.all([
+    const [students, pending, homeworks, notices, messages, activity] = await Promise.all([
       this.count(
         `SELECT COUNT(*) c FROM class_members WHERE status = 'approved' AND class_id IN (${ph})`,
         classIds,
@@ -170,6 +285,7 @@ export class DashboardService {
       this.count(`SELECT COUNT(*) c FROM homework WHERE class_id IN (${ph})`, classIds),
       this.count(`SELECT COUNT(*) c FROM class_notices WHERE class_id IN (${ph})`, classIds),
       this.count(`SELECT COUNT(*) c FROM chat_messages WHERE class_id IN (${ph})`, classIds),
+      this.activityByClasses(classIds),
     ]);
     return {
       role: actor.role,
@@ -180,6 +296,7 @@ export class DashboardService {
       homeworks,
       notices,
       messages,
+      activity,
     };
   }
 
