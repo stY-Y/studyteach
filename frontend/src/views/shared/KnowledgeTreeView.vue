@@ -36,7 +36,6 @@ const showForm = ref(false);
 const creating = ref(false);
 const createError = ref('');
 const form = ref({
-  code: '',
   name: '',
   subject: Subject.MATH,
   stage: StudyStage.JUNIOR as StudyStage | '',
@@ -62,23 +61,22 @@ const parentOptions = computed(() => flat.value.map((r) => ({ id: r.node.id, nam
 
 async function create(): Promise<void> {
   createError.value = '';
-  if (!form.value.code.trim() || !form.value.name.trim()) {
-    createError.value = '请填写编码与名称';
+  if (!form.value.name.trim()) {
+    createError.value = '请填写知识点名称';
     return;
   }
   creating.value = true;
   try {
-    await knowledgeApi.create({
-      code: form.value.code.trim(),
+    // 编码不填：由系统按「学科-学段-序号」自动生成
+    const created = await knowledgeApi.create({
       name: form.value.name.trim(),
       subject: form.value.subject,
       stage: form.value.stage || undefined,
       parentId: form.value.parentId || undefined,
       description: form.value.description.trim() || undefined,
     });
-    tip.value = `已新增知识点「${form.value.name.trim()}」`;
+    tip.value = `已新增知识点「${created.name}」，系统编码：${created.code}`;
     form.value = {
-      code: '',
       name: '',
       subject: form.value.subject,
       stage: form.value.stage,
@@ -123,11 +121,10 @@ onMounted(load);
     <!-- 新增 -->
     <section v-if="showForm" class="card">
       <h2 class="section-title">新增知识点</h2>
+      <p class="text-xs text-faint note">
+        编码由系统自动生成（格式「学科-学段-序号」，如 MATH-J-003），无需手写。
+      </p>
       <div class="form-grid note">
-        <div class="field">
-          <label class="field-label" for="kp-code">编码（唯一，如 MATH-8-05）</label>
-          <input id="kp-code" v-model="form.code" class="input" type="text" placeholder="MATH-8-05" />
-        </div>
         <div class="field">
           <label class="field-label" for="kp-name">名称</label>
           <input id="kp-name" v-model="form.name" class="input" type="text" placeholder="如：一元一次方程" />

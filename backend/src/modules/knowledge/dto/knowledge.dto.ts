@@ -3,10 +3,12 @@ import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString } from 'class-validator
 import { StudyStage, Subject } from '@teachstudy/shared';
 
 export class CreateKnowledgePointDto {
-  @ApiProperty({ description: '唯一编码，如 MATH-7-01' })
+  @ApiPropertyOptional({
+    description: '唯一编码。留空由系统按「学科-学段-序号」自动生成，如 MATH-J-003',
+  })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  code: string;
+  code?: string;
 
   @ApiProperty()
   @IsString()

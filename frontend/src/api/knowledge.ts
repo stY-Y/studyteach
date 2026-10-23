@@ -18,7 +18,8 @@ export interface KnowledgeNode extends KnowledgePointItem {
 }
 
 export type CreateKnowledgeBody = {
-  code: string;
+  /** 编码可省略：留空由服务端按「学科-学段-序号」自动生成 */
+  code?: string;
   name: string;
   subject: Subject;
   stage?: StudyStage;
