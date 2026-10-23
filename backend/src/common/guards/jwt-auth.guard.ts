@@ -39,6 +39,10 @@ export class JwtAuthGuard implements CanActivate {
     // 校验账号仍存在：注销账号后，旧令牌立即失效（无需等待 7 天过期）
     const user = payload.id ? await this.usersService.findById(payload.id) : null;
     if (!user) throw new UnauthorizedException('账号已注销或不存在');
+    // 被停用的账号，已签发的令牌立即失效
+    if (user.status === 'disabled') {
+      throw new UnauthorizedException('账号已被停用，请联系平台管理员');
+    }
 
     // 岗位与角色实时取自数据库：任命/卸任后无需重新登录即刻生效
     const staff = await this.usersService.staffContext(user.id);

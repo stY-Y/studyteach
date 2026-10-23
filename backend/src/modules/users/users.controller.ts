@@ -4,6 +4,7 @@ import {
   DefaultValuePipe,
   Delete,
   Get,
+  Param,
   ParseIntPipe,
   Patch,
   Post,
@@ -16,6 +17,9 @@ import { AuthUser, CurrentUser } from '../../common/decorators/current-user.deco
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UsersService, SafeUserListItem } from './users.service';
 import {
+  AdminResetPasswordDto,
+  AdminSetStatusDto,
+  AdminUpdateUserDto,
   ChangePasswordDto,
   CreateUserDto,
   DeleteAccountDto,
@@ -136,5 +140,58 @@ export class UsersController {
   @ApiOperation({ summary: '管理员：创建用户' })
   create(@Body() dto: CreateUserDto) {
     return this.usersService.create(dto);
+  }
+
+  // ---------- 平台管理员：管理所有人员 ----------
+
+  @Patch(':id')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: '管理员：编辑人员（姓名/手机号/学校/身份）' })
+  adminUpdate(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: AdminUpdateUserDto,
+  ) {
+    return this.usersService.adminUpdateUser(user, id, dto);
+  }
+
+  @Post(':id/reset-password')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: '管理员：重置密码（留空自动生成临时密码，本次返回明文）' })
+  adminResetPassword(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: AdminResetPasswordDto,
+  ) {
+    return this.usersService.adminResetPassword(user, id, dto);
+  }
+
+  @Patch(':id/status')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: '管理员：停用 / 启用账号（停用后立即无法登录）' })
+  adminSetStatus(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: AdminSetStatusDto,
+  ) {
+    return this.usersService.adminSetStatus(user, id, dto.status);
+  }
+
+  @Delete(':id')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: '管理员：删除人员账号（级联清理个人数据）' })
+  adminDelete(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.usersService.adminDeleteUser(user, id);
+  }
+
+  @Put(':id/student-profile')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: '管理员：调整学生的学校与年级' })
+  adminStudentProfile(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: StudentProfileDto,
+  ) {
+    return this.usersService.adminSaveStudentProfile(user, id, dto);
   }
 }

@@ -45,6 +45,10 @@ export class AuthService {
     if (!user || !this.usersService.verifyPassword(dto.password, user.passwordHash)) {
       throw new UnauthorizedException('账号或密码错误');
     }
+    // 放在密码校验之后：未通过密码验证的请求无法探测账号是否被停用
+    if (user.status === 'disabled') {
+      throw new UnauthorizedException('账号已被停用，请联系平台管理员');
+    }
     const payload = this.buildPayload(user);
     const token = await this.jwtService.signAsync(payload);
     return { token, user: payload };
@@ -127,6 +131,9 @@ export class AuthService {
     const user = await this.usersService.findByPhone(dto.phone);
     if (!user || !this.usersService.verifyPassword(dto.password, user.passwordHash)) {
       throw new UnauthorizedException('手机号或密码错误');
+    }
+    if (user.status === 'disabled') {
+      throw new UnauthorizedException('账号已被停用，请联系平台管理员');
     }
     const payload = this.buildPayload(user);
     return { token: await this.jwtService.signAsync(payload), user: payload };

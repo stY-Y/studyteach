@@ -42,6 +42,13 @@ export class User {
   @Column({ type: 'varchar', length: 255, nullable: true })
   avatar: string;
 
+  /**
+   * 账号状态：active 正常 / disabled 已停用。
+   * 停用后无法登录，且已签发的令牌立即失效（JWT 守卫每次请求校验）。
+   */
+  @Column({ type: 'varchar', length: 16, default: 'active' })
+  status: string;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

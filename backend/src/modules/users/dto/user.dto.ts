@@ -5,6 +5,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  MaxLength,
   MinLength,
 } from 'class-validator';
 
@@ -43,8 +44,55 @@ export class CreateUserDto {
 }
 
 /** 修改密码：需提供原密码（首次登录由管理员设置的随机密码必须改掉） */
-export class ChangePasswordDto {
-  @ApiProperty({ description: '原密码' })
+/** 管理员编辑人员基础信息（姓名 / 手机号 / 学校 / 身份） */
+export class AdminUpdateUserDto {
+  @ApiPropertyOptional({ description: '姓名' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  name?: string;
+
+  @ApiPropertyOptional({ description: '手机号；传空字符串表示清空绑定' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  phone?: string;
+
+  @ApiPropertyOptional({ description: '学校 id；传空字符串表示清空' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  schoolId?: string;
+
+  @ApiPropertyOptional({
+    enum: [UserRole.STUDENT, UserRole.TEACHER, UserRole.PARENT],
+    description: '身份；有管理岗位时需先卸任',
+  })
+  @IsOptional()
+  @IsIn([UserRole.STUDENT, UserRole.TEACHER, UserRole.PARENT], {
+    message: '身份只能是学生、教师或家长',
+  })
+  role?: UserRole;
+}
+
+/** 管理员重置密码（不传则自动生成随机临时密码） */
+export class AdminResetPasswordDto {
+  @ApiPropertyOptional({ description: '新密码（8-32 位，含字母和数字）；留空自动生成' })
+  @IsOptional()
+  @IsString()
+  @MinLength(8)
+  @MaxLength(32)
+  password?: string;
+}
+
+/** 停用 / 启用账号 */
+export class AdminSetStatusDto {
+  @ApiProperty({ enum: ['active', 'disabled'], description: 'active 启用 / disabled 停用' })
+  @IsIn(['active', 'disabled'], { message: '状态只能是 active 或 disabled' })
+  status: 'active' | 'disabled';
+}
+
+export class ChangePasswordDto {  @ApiProperty({ description: '原密码' })
   @IsString()
   @IsNotEmpty()
   oldPassword: string;

@@ -17,13 +17,19 @@ import { StaffAppointment } from '../org/entities/staff-appointment.entity';
 import { School } from '../schools/entities/school.entity';
 import { Grade } from '../org/entities/grade.entity';
 import { ClassRoom } from '../classes/entities/class-room.entity';
+import { ClassMember } from '../classes/entities/class-member.entity';
 import {
+  AdminResetPasswordDto,
+  AdminUpdateUserDto,
   ChangePasswordDto,
   CreateUserDto,
   StudentProfileDto,
   TeacherProfileDto,
   UpdateProfileDto,
 } from './dto/user.dto';
+
+/** 强密码：8-32 位，且同时包含字母与数字 */
+const PASSWORD_RE = /^(?=.*[A-Za-z])(?=.*\d).{8,32}$/;
 import { AuthUser } from '../../common/decorators/current-user.decorator';
 import { CryptoService } from '../../common/security/crypto.service';
 
@@ -47,6 +53,8 @@ export interface SafeUserListItem {
   phone?: string | null;
   schoolId?: string | null;
   avatar?: string | null;
+  /** active 正常 / disabled 已停用 */
+  status: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -60,6 +68,8 @@ export interface SafeMeView {
   phone?: string | null;
   schoolId?: string | null;
   avatar?: string | null;
+  /** active 正常 / disabled 已停用 */
+  status: string;
   createdAt: Date;
   updatedAt: Date;
   studentProfile?: StudentProfile | null;
@@ -79,6 +89,12 @@ export interface HierarchyPerson {
   role: string;
   phone: string | null;
   extra: string | null;
+  /** active 正常 / disabled 已停用 */
+  status: string;
+  /** 所属学校（学生可能只写在档案里） */
+  schoolId: string | null;
+  /** 学生当前年级（编辑档案时预填） */
+  grade?: string | null;
 }
 
 /** 学生 / 教师 / 家长 三个身份分区 */
@@ -303,6 +319,10 @@ export class UsersService {
 
   async saveStudentProfile(userId: string, dto: StudentProfileDto): Promise<StudentProfile> {
     const existing = await this.getStudentProfile(userId);
+    const prevGrade = existing?.grade ?? null;
+    const prevSchoolId = existing?.schoolId ?? null;
+    const prevClassId = existing?.classId ?? null;
+
     const profile = existing
       ? Object.assign(existing, dto)
       : this.studentProfiles.create({ userId, ...dto });
@@ -310,6 +330,18 @@ export class UsersService {
     if (dto.guardianPhone !== undefined) {
       profile.guardianPhone = this.crypto.encrypt(dto.guardianPhone);
     }
+
+    // 年级或学校变了 → 自动退出原班级，避免「人已换年级却还留在原班」
+    const gradeChanged = dto.grade !== undefined && dto.grade !== prevGrade;
+    const schoolChanged =
+      dto.schoolId !== undefined && (dto.schoolId || null) !== (prevSchoolId || null);
+    if (prevClassId && (gradeChanged || schoolChanged)) {
+      await this.dataSource
+        .getRepository(ClassMember)
+        .delete({ classId: prevClassId, studentId: userId });
+      profile.classId = null;
+    }
+
     const saved = await this.studentProfiles.save(profile);
 
     // 学校同时写进账号：资源「仅本校可见」、教师限本校审核都读 User.schoolId
@@ -401,7 +433,12 @@ export class UsersService {
     if (!this.verifyPassword(password, user.passwordHash)) {
       throw new UnauthorizedException('密码错误，无法注销账号');
     }
+    await this.purgeUser(userId);
+    return { deleted: true };
+  }
 
+  /** 级联清理并删除账号（本人注销与管理员删除共用） */
+  private async purgeUser(userId: string): Promise<void> {
     await this.dataSource.transaction(async (m) => {
       await m.query('DELETE FROM chat_messages WHERE sender_id = ?', [userId]);
       await m.query('DELETE FROM homework_submissions WHERE student_id = ?', [userId]);
@@ -415,11 +452,140 @@ export class UsersService {
       await m.query('DELETE FROM volunteer_plans WHERE student_id = ?', [userId]);
       await m.query('DELETE FROM student_profiles WHERE user_id = ?', [userId]);
       await m.query('DELETE FROM teacher_profiles WHERE user_id = ?', [userId]);
+      await m.query('DELETE FROM staff_appointments WHERE user_id = ?', [userId]);
+      await m.query('DELETE FROM parent_teacher_messages WHERE sender_id = ?', [userId]);
+      await m.query('UPDATE class_rooms SET teacher_id = ? WHERE teacher_id = ?', ['unassigned', userId]);
       // 教学公共资产保留，仅解除个人关联
       await m.query('UPDATE resources SET owner_id = ? WHERE owner_id = ?', ['deleted-user', userId]);
       await m.query('DELETE FROM users WHERE id = ?', [userId]);
     });
+  }
+
+  // ---------- 平台管理员：人员管理 ----------
+
+  private assertNotSelf(actor: AuthUser, targetId: string, action: string): void {
+    if (actor.id === targetId) {
+      throw new BadRequestException(`不能${action}自己的账号`);
+    }
+  }
+
+  /** 管理员编辑任意人员的基础信息（姓名 / 手机号 / 学校 / 身份） */
+  async adminUpdateUser(actor: AuthUser, targetId: string, dto: AdminUpdateUserDto): Promise<SafeMeView | null> {
+    const user = await this.findById(targetId);
+    if (!user) throw new NotFoundException('账号不存在');
+
+    const patch: Partial<User> = {};
+
+    if (dto.name !== undefined) patch.name = dto.name.trim();
+
+    if (dto.phone !== undefined) {
+      const normalized = this.crypto.normalizePhone(dto.phone);
+      if (normalized) {
+        const exists = await this.findByPhone(normalized);
+        if (exists && exists.id !== targetId) {
+          throw new ConflictException('该手机号已被其他账号使用');
+        }
+        patch.phone = this.crypto.encrypt(normalized);
+        patch.phoneHash = this.crypto.blindIndex(normalized);
+      } else {
+        patch.phone = null;
+        patch.phoneHash = null;
+      }
+    }
+
+    if (dto.schoolId !== undefined) {
+      patch.schoolId = dto.schoolId.trim() || null;
+    }
+
+    if (dto.role !== undefined && dto.role !== user.role) {
+      this.assertNotSelf(actor, targetId, '修改身份');
+      if (user.role === UserRole.ADMIN) {
+        throw new BadRequestException('不能修改平台管理员的身份');
+      }
+      const appointments = await this.appointments.count({ where: { userId: targetId } });
+      if (appointments > 0) {
+        throw new BadRequestException('该账号仍有管理岗位，请先卸任后再修改身份');
+      }
+      patch.role = dto.role;
+    }
+
+    await this.users.update(targetId, patch);
+    const updated = await this.findById(targetId);
+    // 返回脱敏视图：管理员批量查看时不应把明文手机号带回前端缓存
+    return updated ? this.toSafeUser(updated) : null;
+  }
+
+  /** 管理员重置密码（不传则生成随机临时密码，仅本次返回明文） */
+  async adminResetPassword(
+    actor: AuthUser,
+    targetId: string,
+    dto: AdminResetPasswordDto,
+  ): Promise<{ username: string; password: string }> {
+    this.assertNotSelf(actor, targetId, '重置密码');
+    const user = await this.findById(targetId);
+    if (!user) throw new NotFoundException('账号不存在');
+
+    const plain = dto.password?.trim() || this.generateTempPassword();
+    if (dto.password && !PASSWORD_RE.test(plain)) {
+      throw new BadRequestException('密码需 8-32 位，且同时包含字母和数字');
+    }
+
+    await this.users.update(targetId, { passwordHash: this.hashPassword(plain) });
+    return { username: user.username, password: plain };
+  }
+
+  /** 停用 / 启用账号（停用后立即无法登录，旧令牌失效） */
+  async adminSetStatus(actor: AuthUser, targetId: string, status: 'active' | 'disabled') {
+    const user = await this.findById(targetId);
+    if (!user) throw new NotFoundException('账号不存在');
+    if (status === 'disabled') {
+      this.assertNotSelf(actor, targetId, '停用');
+      if (user.role === UserRole.ADMIN) {
+        throw new BadRequestException('不能停用平台管理员账号');
+      }
+    }
+    await this.users.update(targetId, { status });
+    return { id: targetId, status };
+  }
+
+  /** 删除任意人员账号（级联清理个人数据，教学资源保留） */
+  async adminDeleteUser(actor: AuthUser, targetId: string) {
+    this.assertNotSelf(actor, targetId, '删除');
+    const user = await this.findById(targetId);
+    if (!user) throw new NotFoundException('账号不存在');
+    if (user.role === UserRole.ADMIN) {
+      throw new BadRequestException('不能删除平台管理员账号');
+    }
+    await this.purgeUser(targetId);
     return { deleted: true };
+  }
+
+  /** 管理员调整学生的学校与年级（班级仍走学生申请 + 班级管理员审核） */
+  async adminSaveStudentProfile(actor: AuthUser, targetId: string, dto: StudentProfileDto) {
+    const user = await this.findById(targetId);
+    if (!user) throw new NotFoundException('账号不存在');
+    if (user.role !== UserRole.STUDENT) {
+      throw new BadRequestException('该账号不是学生，无法设置学生档案');
+    }
+    return this.saveStudentProfile(targetId, dto);
+  }
+
+  /** 随机临时密码：12 位，确保同时含字母与数字 */
+  private generateTempPassword(): string {
+    const letters = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ';
+    const digits = '23456789';
+    const pick = (set: string) => set[randomBytes(1)[0] % set.length];
+    const chars = [pick(letters), pick(digits)];
+    while (chars.length < 12) {
+      const set = randomBytes(1)[0] % 2 === 0 ? letters : digits;
+      chars.push(pick(set));
+    }
+    // 打乱顺序，避免前两位固定为字母+数字
+    for (let i = chars.length - 1; i > 0; i -= 1) {
+      const j = randomBytes(1)[0] % (i + 1);
+      [chars[i], chars[j]] = [chars[j], chars[i]];
+    }
+    return chars.join('');
   }
 
   /**
@@ -435,6 +601,7 @@ export class UsersService {
       phone: this.crypto.maskPhone(this.crypto.decrypt(u.phone)),
       schoolId: u.schoolId,
       avatar: u.avatar,
+      status: u.status ?? 'active',
       createdAt: u.createdAt,
       updatedAt: u.updatedAt,
     };
@@ -478,7 +645,19 @@ export class UsersService {
       role: u.role,
       phone: this.crypto.maskPhone(this.crypto.decrypt(u.phone)),
       extra: extra ?? null,
+      status: u.status ?? 'active',
+      schoolId: u.schoolId,
     });
+
+    /** 学生额外带上档案里的学校与年级，便于管理员编辑 */
+    const studentPerson = (u: User): HierarchyPerson => {
+      const p = profileByUser.get(u.id);
+      return {
+        ...person(u),
+        schoolId: u.schoolId ?? p?.schoolId ?? null,
+        grade: p?.grade ?? null,
+      };
+    };
 
     /** 学生 → 班级 id */
     const classOfStudent = (studentId: string): string | null => {
@@ -560,12 +739,12 @@ export class UsersService {
         const classId = classOfStudent(u.id);
         const node = classId ? classById.get(classId) : null;
         if (node) {
-          node.students.push(person(u));
+          node.students.push(studentPerson(u));
           continue;
         }
         // 未入班：按档案里的年级归到年级未分配，否则归到学校未分配
         const grade = p?.grade ? schoolGrades.find((g) => g.name === p.grade) : null;
-        (grade ? bucketOfGrade(grade.id) : schoolBucket).students.push(person(u));
+        (grade ? bucketOfGrade(grade.id) : schoolBucket).students.push(studentPerson(u));
       }
 
       // 教师：一次遍历（可带多个班）
@@ -660,7 +839,7 @@ export class UsersService {
     const isPlatform = actor.role === UserRole.ADMIN;
     const unassigned: HierarchyBucket = isPlatform
       ? {
-          students: leftStudents.map((u) => person(u)),
+          students: leftStudents.map((u) => studentPerson(u)),
           teachers: leftTeachers.map((u) => person(u, this.staffLabel(u.id, appointments))),
           parents: leftParents.map((u) => person(u, '未归属学校')),
         }
@@ -723,6 +902,7 @@ export class UsersService {
       phone: this.crypto.decrypt(base.phone),
       schoolId: base.schoolId,
       avatar: base.avatar,
+      status: base.status ?? 'active',
       createdAt: base.createdAt,
       updatedAt: base.updatedAt,
       studentProfile,

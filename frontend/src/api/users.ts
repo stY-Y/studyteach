@@ -39,6 +39,12 @@ export interface HierarchyPerson {
   phone?: string | null;
   /** 附加说明：教师岗位 / 家长的孩子 */
   extra?: string | null;
+  /** active 正常 / disabled 已停用 */
+  status?: string;
+  /** 所属学校 */
+  schoolId?: string | null;
+  /** 学生当前年级 */
+  grade?: string | null;
 }
 
 export interface HierarchyBucket {
@@ -97,6 +103,8 @@ export interface UserItem {
   schoolId?: string | null;
   createdAt: string;
   updatedAt: string;
+  /** active 正常 / disabled 已停用 */
+  status?: string;
 }
 
 /** 学生列表项（教师/管理员可见，教师限本校） */
@@ -163,6 +171,29 @@ export const usersApi = {
 
   /** 管理员：用户分层（学校 → 年级 → 班级 → 学生/家长/教师分区） */
   hierarchy: () => http.get<HierarchyResult>('/users/hierarchy'),
+
+  // ---------- 平台管理员：管理所有人员 ----------
+
+  /** 编辑人员基础信息（姓名 / 手机号 / 学校 / 身份） */
+  adminUpdate: (
+    id: string,
+    body: { name?: string; phone?: string; schoolId?: string; role?: UserRole },
+  ) => http.patch<UserItem>(`/users/${id}`, body),
+
+  /** 重置密码：留空自动生成临时密码，本次返回明文 */
+  adminResetPassword: (id: string, password?: string) =>
+    http.post<{ username: string; password: string }>(`/users/${id}/reset-password`, { password }),
+
+  /** 停用 / 启用账号 */
+  adminSetStatus: (id: string, status: 'active' | 'disabled') =>
+    http.patch<{ id: string; status: string }>(`/users/${id}/status`, { status }),
+
+  /** 删除人员账号（级联清理个人数据） */
+  adminDelete: (id: string) => http.del<{ deleted: true }>(`/users/${id}`),
+
+  /** 调整学生的学校与年级 */
+  adminStudentProfile: (id: string, body: { schoolId?: string; grade?: string }) =>
+    http.put<StudentProfile>(`/users/${id}/student-profile`, body),
 
   /** 管理员：用户列表（后端返回 [列表, 总数]） */
   list: (page = 1, pageSize = 20) =>

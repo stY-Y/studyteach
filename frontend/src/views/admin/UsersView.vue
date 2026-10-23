@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { UserRole } from '@teachstudy/shared';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import {
   usersApi,
   type HierarchyBucket,
@@ -215,6 +215,130 @@ function toggleClass(id: string): void {
   openClasses.value[id] = !openClasses.value[id];
 }
 
+/* ---------- 人员管理面板（平台管理员可管理所有人员） ---------- */
+
+const GRADES12 = [
+  '一年级', '二年级', '三年级', '四年级', '五年级', '六年级',
+  '七年级', '八年级', '九年级', '高一', '高二', '高三',
+];
+const EDIT_ROLES = [UserRole.STUDENT, UserRole.TEACHER, UserRole.PARENT];
+
+const editing = ref<HierarchyPerson | null>(null);
+const editForm = reactive({ name: '', phone: '', schoolId: '', role: '', grade: '' });
+const savingEdit = ref(false);
+const editError = ref('');
+const editTip = ref('');
+const tempPassword = ref('');
+
+function openUser(p: HierarchyPerson): void {
+  editing.value = p;
+  editForm.name = p.name ?? '';
+  editForm.phone = '';
+  editForm.schoolId = p.schoolId ?? '';
+  editForm.role = p.role;
+  editForm.grade = p.grade ?? '';
+  editError.value = '';
+  editTip.value = '';
+  tempPassword.value = '';
+}
+
+function closeUser(): void {
+  editing.value = null;
+}
+
+async function saveUser(): Promise<void> {
+  const p = editing.value;
+  if (!p) return;
+  editError.value = '';
+  editTip.value = '';
+  savingEdit.value = true;
+  try {
+    const body: { name?: string; phone?: string; schoolId?: string; role?: UserRole } = {};
+    if (editForm.name.trim() !== (p.name ?? '')) body.name = editForm.name.trim();
+    if (editForm.phone.trim()) body.phone = editForm.phone.trim();
+    if (editForm.schoolId !== (p.schoolId ?? '')) body.schoolId = editForm.schoolId;
+    if (editForm.role !== p.role) body.role = editForm.role as UserRole;
+
+    if (Object.keys(body).length > 0) await usersApi.adminUpdate(p.id, body);
+
+    // 学生档案（学校 / 年级）单独接口
+    if (p.role === 'student' && editForm.grade && editForm.grade !== (p.grade ?? '')) {
+      await usersApi.adminStudentProfile(p.id, {
+        schoolId: editForm.schoolId || undefined,
+        grade: editForm.grade,
+      });
+    }
+
+    editTip.value = '已保存';
+    await Promise.all([loadTree(), load()]);
+    editing.value = {
+      ...p,
+      name: editForm.name.trim() || p.name,
+      schoolId: editForm.schoolId || null,
+      role: editForm.role,
+      grade: editForm.grade || null,
+    };
+    editForm.phone = '';
+  } catch (err) {
+    editError.value = (err as Error).message;
+  } finally {
+    savingEdit.value = false;
+  }
+}
+
+async function resetPassword(): Promise<void> {
+  const p = editing.value;
+  if (!p) return;
+  if (!window.confirm(`确定重置「${p.name}」的密码？将生成临时密码，只显示这一次。`)) return;
+  editError.value = '';
+  editTip.value = '';
+  try {
+    const res = await usersApi.adminResetPassword(p.id);
+    tempPassword.value = res.password;
+    editTip.value = '密码已重置，请把新密码当面告知本人';
+  } catch (err) {
+    editError.value = (err as Error).message;
+  }
+}
+
+async function toggleStatus(): Promise<void> {
+  const p = editing.value;
+  if (!p) return;
+  const next = p.status === 'disabled' ? 'active' : 'disabled';
+  const verb = next === 'disabled' ? '停用' : '启用';
+  if (!window.confirm(`确定${verb}「${p.name}」的账号？`)) return;
+  editError.value = '';
+  editTip.value = '';
+  try {
+    await usersApi.adminSetStatus(p.id, next);
+    editing.value = { ...p, status: next };
+    editTip.value = next === 'disabled' ? '已停用：该账号立即无法登录' : '已启用：可以正常登录了';
+    await Promise.all([loadTree(), load()]);
+  } catch (err) {
+    editError.value = (err as Error).message;
+  }
+}
+
+async function deleteUser(): Promise<void> {
+  const p = editing.value;
+  if (!p) return;
+  if (
+    !window.confirm(
+      `确定删除「${p.name}（${p.username}）」？会级联删除其聊天、作业提交、绑定关系等个人数据，不可恢复。`,
+    )
+  ) {
+    return;
+  }
+  editError.value = '';
+  try {
+    await usersApi.adminDelete(p.id);
+    editing.value = null;
+    await Promise.all([loadTree(), load()]);
+  } catch (err) {
+    editError.value = (err as Error).message;
+  }
+}
+
 function switchView(next: 'hierarchy' | 'list'): void {
   view.value = next;
   if (next === 'hierarchy' && !tree.value) void loadTree();
@@ -387,31 +511,55 @@ onMounted(async () => {
                   <div class="identity">
                     <p class="identity-title">学生 <span class="count">{{ c.students.length }}</span></p>
                     <p v-if="c.students.length === 0" class="text-xs text-faint">暂无</p>
-                    <div v-for="p in c.students" :key="p.id" class="person">
+                    <button
+                      v-for="p in c.students"
+                      :key="p.id"
+                      class="person person-btn"
+                      type="button"
+                      title="点击管理该学生"
+                      @click="openUser(p)"
+                    >
                       <span class="person-name">{{ p.name }}</span>
                       <span class="person-meta mono">{{ p.username }}</span>
                       <span v-if="p.phone" class="person-meta">{{ p.phone }}</span>
-                    </div>
+                      <span v-if="p.status === 'disabled'" class="badge badge-danger">已停用</span>
+                    </button>
                   </div>
 
                   <div class="identity">
                     <p class="identity-title">家长 <span class="count">{{ c.parents.length }}</span></p>
                     <p v-if="c.parents.length === 0" class="text-xs text-faint">暂无</p>
-                    <div v-for="p in c.parents" :key="`p-${p.id}`" class="person">
+                    <button
+                      v-for="p in c.parents"
+                      :key="`p-${p.id}`"
+                      class="person person-btn"
+                      type="button"
+                      title="点击管理该家长"
+                      @click="openUser(p)"
+                    >
                       <span class="person-name">{{ p.name }}</span>
                       <span class="person-meta mono">{{ p.username }}</span>
                       <span v-if="p.extra" class="person-meta">{{ p.extra }}</span>
-                    </div>
+                      <span v-if="p.status === 'disabled'" class="badge badge-danger">已停用</span>
+                    </button>
                   </div>
 
                   <div class="identity">
                     <p class="identity-title">教师 <span class="count">{{ c.teachers.length }}</span></p>
                     <p v-if="c.teachers.length === 0" class="text-xs text-faint">暂无</p>
-                    <div v-for="p in c.teachers" :key="`t-${p.id}`" class="person">
+                    <button
+                      v-for="p in c.teachers"
+                      :key="`t-${p.id}`"
+                      class="person person-btn"
+                      type="button"
+                      title="点击管理该教师"
+                      @click="openUser(p)"
+                    >
                       <span class="person-name">{{ p.name }}</span>
                       <span class="person-meta mono">{{ p.username }}</span>
                       <span v-if="p.extra" class="badge badge-primary">{{ p.extra }}</span>
-                    </div>
+                      <span v-if="p.status === 'disabled'" class="badge badge-danger">已停用</span>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -518,6 +666,95 @@ onMounted(async () => {
         <button class="btn btn-sm" type="button" :disabled="page >= totalPages" @click="nextPage">下一页</button>
       </div>
     </section>
+
+    <!-- ================= 人员管理面板 ================= -->
+    <div v-if="editing" class="modal-mask" @click.self="closeUser">
+      <section class="modal-card stack">
+        <div class="row wrap">
+          <h2 class="section-title">{{ editing.name }}</h2>
+          <span class="badge mono">{{ editing.username }}</span>
+          <span
+            class="badge"
+            :class="editing.status === 'disabled' ? 'badge-danger' : 'badge-success'"
+          >
+            {{ editing.status === 'disabled' ? '已停用' : '正常' }}
+          </span>
+          <div class="spacer" />
+          <button class="btn btn-sm" type="button" @click="closeUser">关闭</button>
+        </div>
+
+        <p class="text-xs text-faint">
+          {{ roleLabel(editing.role) }}<template v-if="editing.extra"> · {{ editing.extra }}</template>
+        </p>
+
+        <div v-if="editError" class="alert alert-danger">{{ editError }}</div>
+        <div v-if="editTip" class="alert alert-success">{{ editTip }}</div>
+
+        <div class="field">
+          <label class="field-label" for="ed-name">姓名</label>
+          <input id="ed-name" v-model="editForm.name" class="input" type="text" maxlength="64" />
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="ed-phone">手机号</label>
+          <input
+            id="ed-phone"
+            v-model="editForm.phone"
+            class="input"
+            type="text"
+            maxlength="11"
+            :placeholder="`当前 ${editing.phone || '未绑定'}；留空表示不修改`"
+          />
+          <p class="text-xs text-faint">加密存储；填写新号会校验是否已被占用。</p>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="ed-school">所属学校</label>
+          <select id="ed-school" v-model="editForm.schoolId" class="input">
+            <option value="">未设置</option>
+            <option v-for="s in schools" :key="s.id" :value="s.id">{{ s.name }}</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="ed-role">身份</label>
+          <select id="ed-role" v-model="editForm.role" class="input" :disabled="editing.role === 'admin'">
+            <option v-for="r in EDIT_ROLES" :key="r" :value="r">{{ roleLabel(r) }}</option>
+          </select>
+          <p class="text-xs text-faint">
+            有管理岗位的账号需先卸任才能改身份；平台管理员身份不可修改。
+          </p>
+        </div>
+
+        <div v-if="editing.role === 'student'" class="field">
+          <label class="field-label" for="ed-grade">年级</label>
+          <select id="ed-grade" v-model="editForm.grade" class="input">
+            <option value="">未设置</option>
+            <option v-for="g in GRADES12" :key="g" :value="g">{{ g }}</option>
+          </select>
+          <p class="text-xs text-faint">
+            改年级或学校会自动退出原班级，需由学生重新申请入班（避免绕过班级准入）。
+          </p>
+        </div>
+
+        <div class="row wrap note">
+          <button class="btn btn-primary" type="button" :disabled="savingEdit" @click="saveUser">
+            {{ savingEdit ? '保存中…' : '保存修改' }}
+          </button>
+          <button class="btn" type="button" @click="resetPassword">重置密码</button>
+          <button class="btn" type="button" @click="toggleStatus">
+            {{ editing.status === 'disabled' ? '启用账号' : '停用账号' }}
+          </button>
+          <div class="spacer" />
+          <button class="btn btn-danger" type="button" @click="deleteUser">删除账号</button>
+        </div>
+
+        <div v-if="tempPassword" class="alert alert-info">
+          临时密码：<span class="mono">{{ tempPassword }}</span>
+          <p class="text-xs">只显示这一次，请当面告知本人并提醒尽快修改。</p>
+        </div>
+      </section>
+    </div>
   </div>
 </template>
 
@@ -772,5 +1009,47 @@ onMounted(async () => {
 .pager {
   margin-top: 12px;
   justify-content: center;
+}
+/* ---------- 可点击的人员 ---------- */
+.person-btn {
+  width: 100%;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  border-radius: var(--radius-sm);
+}
+
+.person-btn:hover {
+  background: #fff9ec;
+}
+
+/* ---------- 人员管理面板 ---------- */
+.modal-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px 14px 40px;
+  background: rgba(31, 26, 18, 0.38);
+  overflow: auto;
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 520px;
+  padding: 16px;
+  background: var(--c-bg);
+  border: 1px solid var(--c-border);
+  border-radius: 12px;
+}
+
+.btn-danger {
+  color: #b91c1c;
+  border-color: #f0c9c9;
+  background: #fff6f6;
 }
 </style>
