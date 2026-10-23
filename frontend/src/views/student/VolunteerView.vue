@@ -12,9 +12,13 @@ const subjectsText = ref('');
 
 const matching = ref(false);
 const error = ref('');
+const tip = ref('');
 const active = ref<VolunteerPlanItem | null>(null);
 const plans = ref<VolunteerPlanItem[]>([]);
 const plansLoading = ref(false);
+/** 勾选待对比的方案 id（最多两份） */
+const compareIds = ref<string[]>([]);
+const compareOpen = ref(false);
 
 const TIER_META: Record<string, { label: string; hint: string; badge: string }> = {
   chong: { label: '冲一冲', hint: '录取分数略高于你的成绩，可以试试', badge: 'badge-danger' },
@@ -71,10 +75,46 @@ async function loadPlans(): Promise<void> {
   try {
     plans.value = await volunteerApi.plans();
     if (!active.value && plans.value.length > 0) active.value = plans.value[0];
+    // 清理已不存在的对比选择
+    const ids = new Set(plans.value.map((p) => p.id));
+    compareIds.value = compareIds.value.filter((id) => ids.has(id));
   } catch {
     plans.value = [];
   } finally {
     plansLoading.value = false;
+  }
+}
+
+/** 勾选/取消对比（最多两份） */
+function toggleCompare(id: string): void {
+  const set = new Set(compareIds.value);
+  if (set.has(id)) set.delete(id);
+  else if (set.size < 2) set.add(id);
+  else toastCompareLimit();
+  compareIds.value = Array.from(set);
+}
+
+function toastCompareLimit(): void {
+  error.value = '一次最多对比两份方案';
+  setTimeout(() => { error.value = ''; }, 2500);
+}
+
+const comparePair = computed(() =>
+  compareIds.value
+    .map((id) => plans.value.find((p) => p.id === id))
+    .filter((p): p is VolunteerPlanItem => Boolean(p)),
+);
+
+async function removePlan(item: VolunteerPlanItem): Promise<void> {
+  error.value = '';
+  try {
+    await volunteerApi.removePlan(item.id);
+    tip.value = `已删除 ${item.score} 分的方案`;
+    compareIds.value = compareIds.value.filter((id) => id !== item.id);
+    if (active.value?.id === item.id) active.value = null;
+    await loadPlans();
+  } catch (err) {
+    error.value = (err as Error).message;
   }
 }
 
@@ -117,6 +157,7 @@ onMounted(loadPlans);
       </div>
 
       <div v-if="error" class="alert alert-warning note">{{ error }}</div>
+      <div v-if="tip" class="alert alert-success note">{{ tip }}</div>
 
       <button class="btn btn-primary btn-block note" type="button" :disabled="matching" @click="match">
         {{ matching ? '正在生成方案…' : '生成「冲稳保」方案' }}
@@ -158,29 +199,83 @@ onMounted(loadPlans);
 
     <!-- 历史 -->
     <section class="card">
-      <div class="row">
+      <div class="row wrap">
         <h2 class="section-title">历史方案</h2>
         <div class="spacer" />
         <button class="btn btn-sm" type="button" :disabled="plansLoading" @click="loadPlans">刷新</button>
+        <button
+          class="btn btn-sm"
+          type="button"
+          :disabled="compareIds.length !== 2"
+          @click="compareOpen = true"
+        >
+          对比所选（{{ compareIds.length }}/2）
+        </button>
       </div>
 
       <p v-if="plansLoading" class="text-sm text-soft note">加载中…</p>
       <div v-else-if="plans.length === 0" class="empty note">还没有生成过方案，填好上面的信息试试看。</div>
       <ul v-else class="history note">
         <li v-for="p in plans" :key="p.id" class="history-item" :class="{ active: active?.id === p.id }">
-          <button class="history-btn" type="button" @click="viewPlan(p)">
-            <span class="badge badge-primary">{{ p.score }} 分</span>
-            <span class="text-xs text-soft">位次 {{ p.rank }}</span>
-            <div class="spacer" />
-            <span class="text-xs text-faint">{{ formatTime(p.createdAt) }}</span>
-          </button>
+          <div class="history-row">
+            <label class="history-pick" :title="compareIds.includes(p.id) ? '取消选择' : '选入对比'">
+              <input
+                type="checkbox"
+                style="width:18px;height:18px;accent-color:var(--c-primary)"
+                :checked="compareIds.includes(p.id)"
+                @change="toggleCompare(p.id)"
+              />
+            </label>
+            <button class="history-btn" type="button" @click="viewPlan(p)">
+              <span class="badge badge-primary">{{ p.score }} 分</span>
+              <span class="text-xs text-soft">位次 {{ p.rank }}</span>
+              <div class="spacer" />
+              <span class="text-xs text-faint">{{ formatTime(p.createdAt) }}</span>
+            </button>
+            <button class="btn btn-sm history-del" type="button" @click="removePlan(p)">删除</button>
+          </div>
         </li>
       </ul>
+      <p class="text-xs text-faint note">勾选两份方案后点「对比所选」，可并排查看冲稳保差异。</p>
     </section>
 
-    <section class="row">
-      <button class="btn" type="button" @click="goHome">返回工作台</button>
-    </section>
+    <!-- 对比弹层 -->
+    <div v-if="compareOpen" class="preview-overlay" @click.self="compareOpen = false">
+      <section class="preview-panel" role="dialog" aria-modal="true" aria-label="志愿方案对比">
+        <header class="preview-head">
+          <p class="preview-title">志愿方案对比</p>
+          <div class="spacer" />
+          <button class="btn btn-sm" type="button" @click="compareOpen = false">关闭</button>
+        </header>
+        <div class="preview-body">
+          <div v-if="comparePair.length !== 2" class="empty">请选择两份方案。</div>
+          <div v-else class="compare-grid">
+            <div v-for="p in comparePair" :key="p.id" class="compare-col">
+              <div class="row wrap">
+                <span class="badge badge-primary">{{ p.score }} 分</span>
+                <span class="badge">位次 {{ p.rank }}</span>
+                <span class="text-xs text-faint">{{ formatTime(p.createdAt) }}</span>
+              </div>
+              <div v-for="group in groupByTier(p.plans)" :key="group.tier" class="tier-block">
+                <div class="row">
+                  <span class="badge" :class="tierMeta(group.tier).badge">{{ tierMeta(group.tier).label }}</span>
+                  <span class="text-xs text-faint">{{ group.items.length }} 所</span>
+                </div>
+                <ul class="college-list">
+                  <li v-for="(c, i) in group.items" :key="i" class="college-item">
+                    <p class="college-name">{{ c.name }}</p>
+                    <p v-if="c.restrictions?.length" class="text-xs text-soft">
+                      限制：{{ c.restrictions.join('；') }}
+                    </p>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
   </div>
 </template>
 
@@ -268,5 +363,87 @@ onMounted(loadPlans);
 
 .history-item.active .history-btn {
   background: var(--c-primary-soft);
+}
+
+.history-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.history-pick {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 44px;
+  flex: none;
+  cursor: pointer;
+}
+
+.history-del {
+  flex: none;
+  margin-right: 8px;
+}
+
+.compare-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+@media (min-width: 720px) {
+  .compare-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.compare-col {
+  padding: 12px;
+  background: #faf6ec;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+}
+
+.preview-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(58, 47, 36, 0.35);
+}
+
+.preview-panel {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 860px;
+  max-height: 88vh;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border-strong);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.preview-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--c-border);
+}
+
+.preview-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.preview-body {
+  flex: 1;
+  min-height: 120px;
+  padding: 14px;
+  overflow: auto;
 }
 </style>

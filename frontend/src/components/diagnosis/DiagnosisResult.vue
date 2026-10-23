@@ -143,7 +143,6 @@ function masteryClass(wp: WeakPoint): string {
     <!-- 操作 -->
     <section class="row wrap">
       <button class="btn btn-primary" type="button" @click="emit('retry')">再测一次</button>
-      <button class="btn" type="button" @click="emit('home')">返回工作台</button>
     </section>
   </div>
 </template>

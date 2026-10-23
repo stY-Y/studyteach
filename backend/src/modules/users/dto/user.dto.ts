@@ -7,6 +7,7 @@ import {
   IsString,
   MinLength,
 } from 'class-validator';
+
 import { UserRole } from '@teachstudy/shared';
 
 export class CreateUserDto {
@@ -41,6 +42,19 @@ export class CreateUserDto {
   schoolId?: string;
 }
 
+/** 修改密码：需提供原密码（首次登录由管理员设置的随机密码必须改掉） */
+export class ChangePasswordDto {
+  @ApiProperty({ description: '原密码' })
+  @IsString()
+  @IsNotEmpty()
+  oldPassword: string;
+
+  @ApiProperty({ description: '新密码（至少 6 位）' })
+  @IsString()
+  @MinLength(6)
+  newPassword: string;
+}
+
 export class UpdateProfileDto {
   @ApiPropertyOptional()
   @IsOptional()
@@ -59,6 +73,11 @@ export class UpdateProfileDto {
 }
 
 export class StudentProfileDto {
+  @ApiPropertyOptional({ description: '所属学校 id（来自 GET /schools）' })
+  @IsOptional()
+  @IsString()
+  schoolId?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()

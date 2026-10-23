@@ -250,7 +250,6 @@ onMounted(() => {
       <button v-if="step !== 'setup'" class="btn btn-sm" type="button" @click="backToSetup">
         ← 返回选科
       </button>
-      <button class="btn btn-sm" type="button" @click="goHome">返回工作台</button>
     </section>
   </div>
 </template>

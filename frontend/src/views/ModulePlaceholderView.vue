@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute } from 'vue-router';
 import { ROLE_CONFIG, type ModuleEntry } from '../config/modules';
 import { useAuthStore } from '../stores/auth';
 
 const route = useRoute();
-const router = useRouter();
 const auth = useAuthStore();
 
 /** 先在本角色模块里找，找不到再全局找（便于直接访问链接） */
@@ -21,15 +20,10 @@ const moduleEntry = computed<ModuleEntry | null>(() => {
   return null;
 });
 
-function goHome(): void {
-  void router.push({ name: 'home' });
-}
 </script>
 
 <template>
   <div class="stack">
-    <button class="btn btn-sm back" type="button" @click="goHome">← 返回工作台</button>
-
     <section v-if="moduleEntry" class="card stack">
       <div class="row">
         <span class="ph-icon">{{ moduleEntry.icon }}</span>
@@ -55,16 +49,11 @@ function goHome(): void {
     <section v-else class="card stack">
       <h1 class="page-title">模块不存在</h1>
       <p class="text-soft">未找到标识为 <span class="mono">{{ route.params.key }}</span> 的模块。</p>
-      <button class="btn btn-primary" type="button" @click="goHome">返回工作台</button>
     </section>
   </div>
 </template>
 
 <style scoped>
-.back {
-  align-self: flex-start;
-}
-
 .ph-icon {
   font-size: 22px;
 }

@@ -9,7 +9,7 @@ export class AppController {
   @Get('health')
   @ApiOperation({ summary: '健康检查' })
   health() {
-    return { status: 'ok', service: 'teachstudy', time: new Date().toISOString() };
+    return { status: 'ok', service: '青禾', time: new Date().toISOString() };
   }
 
   @Public()

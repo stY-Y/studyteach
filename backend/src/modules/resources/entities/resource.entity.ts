@@ -58,7 +58,7 @@ export class Resource {
   ownerId: string;
 
   @Column({ name: 'school_id', type: 'varchar', length: 64, nullable: true })
-  schoolId: string;
+  schoolId: string | null;
 
   @Column({ type: 'varchar', length: 32, default: ResourceScope.SCHOOL_ONLY })
   scope: ResourceScope;

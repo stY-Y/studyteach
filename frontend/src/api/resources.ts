@@ -104,6 +104,14 @@ export async function fetchResourcePreview(id: string): Promise<{ blob: Blob; mi
   return { blob: typed, mime: typed.type || mime };
 }
 
+export type ReviewBody = {
+  /** school = 校级审核；platform = 平台复核（仅管理员） */
+  level: 'school' | 'platform';
+  /** approved = 通过；rejected = 驳回 */
+  result: 'approved' | 'rejected';
+  comment?: string;
+};
+
 export const resourcesApi = {
   /** 资源列表（仅审核通过、按开放权限过滤），可离线缓存 */
   list: (query: ResourceQuery, page = 1, pageSize = 12) =>
@@ -114,6 +122,12 @@ export const resourcesApi = {
 
   /** 教师/管理员：我的上传资源 */
   mine: () => http.get<ResourceItem[]>('/resources/mine', { cache: true }),
+
+  /** 待审核队列（教师限本校的校级审核，管理员含平台复核） */
+  pending: () => http.get<ResourceItem[]>('/resources/pending'),
+
+  /** 双层审核：校级审核 / 平台复核 */
+  review: (id: string, body: ReviewBody) => http.post<ResourceItem>(`/resources/${id}/review`, body),
 
   /** 教师/管理员：上传资源（进入校级审核） */
   upload: uploadResource,

@@ -53,6 +53,13 @@ const router = createRouter({
           meta: { title: '我的学情', roles: [UserRole.STUDENT] },
         },
         {
+          // 学生端 · 我的档案（已实现界面：年级/班级/选科/监护人手机）
+          path: 'profile',
+          name: 'profile',
+          component: () => import('../views/student/ProfileView.vue'),
+          meta: { title: '我的档案', roles: [UserRole.STUDENT] },
+        },
+        {
           // 家长端 · 孩子学情（已实现界面，含学情报表）
           path: 'children',
           name: 'children',
@@ -65,6 +72,13 @@ const router = createRouter({
           name: 'link',
           component: () => import('../views/parent/LinkChildView.vue'),
           meta: { title: '绑定学生', roles: [UserRole.PARENT] },
+        },
+        {
+          // 四端共用 · 修改密码（不限定角色，任何登录用户都可进入）
+          path: 'password',
+          name: 'password',
+          component: () => import('../views/shared/ChangePasswordView.vue'),
+          meta: { title: '修改密码' },
         },
         {
           // 共享 · 学习资源（学生端浏览下载；管理员资源总览）
@@ -95,11 +109,32 @@ const router = createRouter({
           meta: { title: '志愿匹配', roles: [UserRole.STUDENT] },
         },
         {
+          // 学生端 · 批改记录（错题回顾，已实现界面）
+          path: 'grading-history',
+          name: 'gradingHistory',
+          component: () => import('../views/student/GradingHistoryView.vue'),
+          meta: { title: '批改记录', roles: [UserRole.STUDENT] },
+        },
+        {
+          // 学生端 · 院校库（已实现界面）
+          path: 'colleges',
+          name: 'colleges',
+          component: () => import('../views/student/CollegesView.vue'),
+          meta: { title: '院校库', roles: [UserRole.STUDENT] },
+        },
+        {
           // 教师端 · 智能组卷
           path: 'papers',
           name: 'papers',
           component: () => import('../views/teacher/PaperView.vue'),
           meta: { title: '智能组卷', roles: [UserRole.TEACHER, UserRole.ADMIN] },
+        },
+        {
+          // 教师端 · 学情查看（已实现界面：选学生 → 看学情报表）
+          path: 'students',
+          name: 'students',
+          component: () => import('../views/teacher/StudentReportView.vue'),
+          meta: { title: '学情查看', roles: [UserRole.TEACHER, UserRole.ADMIN] },
         },
         {
           // 教师端 · 题库管理
@@ -135,6 +170,13 @@ const router = createRouter({
           name: 'enrollment',
           component: () => import('../views/admin/EnrollmentView.vue'),
           meta: { title: '升学数据', roles: [UserRole.ADMIN] },
+        },
+        {
+          // 管理员 · 资源复核（已实现界面：校级审核 + 平台复核）
+          path: 'review',
+          name: 'review',
+          component: () => import('../views/admin/ResourceReviewView.vue'),
+          meta: { title: '资源复核', roles: [UserRole.TEACHER, UserRole.ADMIN] },
         },
         {
           // 尚未实现界面的模块统一走占位页

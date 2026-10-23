@@ -29,7 +29,7 @@ export class User {
   phone: string;
 
   @Column({ name: 'school_id', type: 'varchar', length: 64, nullable: true })
-  schoolId: string;
+  schoolId: string | null;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
   avatar: string;

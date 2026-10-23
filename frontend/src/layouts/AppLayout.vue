@@ -22,6 +22,11 @@ function isNavActive(m: ModuleEntry): boolean {
   return m.path ? route.path === m.path : route.params.key === m.key;
 }
 
+/** 返回工作台（子页面左上角按钮） */
+function goHome(): void {
+  void router.push({ name: 'home' });
+}
+
 function logout(): void {
   auth.logout();
   void router.replace({ name: 'login' });
@@ -88,6 +93,12 @@ function logout(): void {
       </aside>
 
       <main class="main">
+        <!-- 全局返回：每个子页面左上角都能一键回工作台（工作台自身不显示） -->
+        <div v-if="!isHome" class="page-topbar">
+          <button class="btn btn-sm back-home" type="button" @click="goHome">
+            <span class="back-arrow" aria-hidden="true">←</span> 返回工作台
+          </button>
+        </div>
         <RouterView />
       </main>
     </div>
@@ -206,7 +217,6 @@ function logout(): void {
 }
 
 .main {
-  flex: 1;
   min-width: 0;
   padding: 18px 16px 40px;
 }
@@ -227,5 +237,19 @@ function logout(): void {
   .user {
     display: none;
   }
+}
+
+/* 子页面左上角的「返回工作台」 */
+.page-topbar {
+  margin: -4px 0 10px;
+}
+
+.back-home {
+  gap: 4px;
+}
+
+.back-arrow {
+  font-size: 15px;
+  line-height: 1;
 }
 </style>

@@ -15,6 +15,7 @@ import { AuthUser, CurrentUser } from '../../common/decorators/current-user.deco
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UsersService } from './users.service';
 import {
+  ChangePasswordDto,
   CreateUserDto,
   LinkParentDto,
   StudentProfileDto,
@@ -94,6 +95,19 @@ export class UsersController {
     @Query('pageSize', new DefaultValuePipe(20), ParseIntPipe) pageSize: number,
   ) {
     return this.usersService.list(page, pageSize);
+  }
+
+  @Patch('me/password')
+  @ApiOperation({ summary: '修改本人密码（需提供原密码）' })
+  changePassword(@CurrentUser() user: AuthUser, @Body() dto: ChangePasswordDto) {
+    return this.usersService.changePassword(user.id, dto);
+  }
+
+  @Get('students')
+  @Roles(UserRole.TEACHER, UserRole.ADMIN)
+  @ApiOperation({ summary: '教师/管理员：可见学生列表（教师限本校，供学情查看选人）' })
+  students(@CurrentUser() user: AuthUser) {
+    return this.usersService.listStudents(user);
   }
 
   @Post()

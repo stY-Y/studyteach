@@ -5,7 +5,8 @@ import { StudyStage, Subject } from '@teachstudy/shared';
 import { KnowledgePoint } from './entities/knowledge-point.entity';
 import { CreateKnowledgePointDto, UpdateKnowledgePointDto } from './dto/knowledge.dto';
 
-interface KnowledgeNode extends KnowledgePoint {
+/** 知识点树节点（导出以便控制器标注返回类型，满足声明文件要求） */
+export interface KnowledgeNode extends KnowledgePoint {
   children: KnowledgeNode[];
 }
 

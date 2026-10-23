@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { randomBytes } from 'crypto';
 import * as path from 'path';
 import {
@@ -144,9 +144,47 @@ export class ResourcesService {
     return this.repo.save(resource);
   }
 
-  /** 双层审核：校级审核 -> 平台复核 -> 入库 */
+  /**
+   * 待审核队列：校级审核阶段与平台复核阶段的资源。
+   * 教师只看本校（校级审核），管理员看全部（含平台复核）。
+   * 这是「资源复核」界面缺的关键接口。
+   */
+  async listPending(reviewer: AuthUser): Promise<Resource[]> {
+    const statuses = [ResourceStatus.PENDING_SCHOOL, ResourceStatus.PENDING_PLATFORM];
+    const order = { createdAt: 'DESC' as const };
+
+    if (reviewer.role === UserRole.ADMIN) {
+      return this.repo.find({ where: { status: In(statuses) }, order });
+    }
+    if (reviewer.schoolId) {
+      return this.repo.find({
+        where: { status: In(statuses), schoolId: reviewer.schoolId },
+        order,
+      });
+    }
+    return [];
+  }
+
+  /** 双层审核：校级审核（教师/管理员）-> 平台复核（仅管理员）-> 入库 */
   async review(id: string, reviewer: AuthUser, dto: ReviewResourceDto): Promise<Resource> {
     const resource = await this.findById(id);
+
+    // 权限：学生/家长不可审核；校级审核限本校（管理员除外）；平台复核仅管理员
+    if (reviewer.role === UserRole.STUDENT || reviewer.role === UserRole.PARENT) {
+      throw new ForbiddenException('无权审核资源');
+    }
+    if (dto.level === ReviewLevel.SCHOOL) {
+      if (
+        reviewer.role !== UserRole.ADMIN &&
+        resource.schoolId &&
+        resource.schoolId !== reviewer.schoolId
+      ) {
+        throw new ForbiddenException('只能审核本校资源');
+      }
+    } else if (reviewer.role !== UserRole.ADMIN) {
+      throw new ForbiddenException('平台复核仅限平台管理员');
+    }
+
     if (dto.level === ReviewLevel.SCHOOL) {
       if (resource.status !== ResourceStatus.PENDING_SCHOOL) {
         throw new BadRequestException('当前状态不可校级审核');

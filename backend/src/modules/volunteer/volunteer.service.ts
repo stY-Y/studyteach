@@ -1,4 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { VolunteerPlan } from './entities/volunteer-plan.entity';
@@ -30,6 +34,17 @@ export class VolunteerService {
 
   listByStudent(studentId: string): Promise<VolunteerPlan[]> {
     return this.planRepo.find({ where: { studentId }, order: { createdAt: 'DESC' } });
+  }
+
+  /** 删除本人的志愿方案（越权删除直接拒绝） */
+  async remove(studentId: string, planId: string): Promise<{ deleted: true }> {
+    const plan = await this.planRepo.findOne({ where: { id: planId } });
+    if (!plan) throw new NotFoundException('方案不存在');
+    if (plan.studentId !== studentId) {
+      throw new ForbiddenException('只能删除自己的方案');
+    }
+    await this.planRepo.delete(planId);
+    return { deleted: true };
   }
 
   /** 院校库（每年同步更新投档线/选科要求） */

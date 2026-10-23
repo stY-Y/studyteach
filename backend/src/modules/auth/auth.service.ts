@@ -15,7 +15,7 @@ export class AuthService {
     username: string;
     role: string;
     name?: string;
-    schoolId?: string;
+    schoolId?: string | null;
   }) {
     return {
       id: user.id,

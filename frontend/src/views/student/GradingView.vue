@@ -395,7 +395,6 @@ onMounted(() => {
 
       <section class="row wrap">
         <button class="btn btn-primary" type="button" @click="backToPick">再练一道</button>
-        <button class="btn" type="button" @click="goHome">返回工作台</button>
       </section>
     </template>
   </div>

@@ -16,7 +16,8 @@ export default () => {
   const isProd = env.NODE_ENV === 'production';
 
   // 开发默认使用 better-sqlite3（零外部依赖，适配低配/离线环境）；生产可切换 mysql/postgres
-  const database: TypeOrmModuleOptions =
+  // 两个分支的 type 宽度不同，末尾统一断言为 TypeOrmModuleOptions
+  const database = (
     dbType === 'better-sqlite3'
       ? {
           type: 'better-sqlite3',
@@ -33,7 +34,8 @@ export default () => {
           database: env.DB_DATABASE || 'teachstudy',
           autoLoadEntities: true,
           synchronize: !isProd,
-        };
+        }
+  ) as TypeOrmModuleOptions;
 
   return {
     env: env.NODE_ENV || 'development',

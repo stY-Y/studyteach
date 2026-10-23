@@ -114,9 +114,6 @@ onMounted(load);
       </ul>
     </section>
 
-    <section class="row">
-      <button class="btn" type="button" @click="goHome">返回工作台</button>
-    </section>
   </div>
 </template>
 

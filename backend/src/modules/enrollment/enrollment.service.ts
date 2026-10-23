@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { FindOptionsWhere, Repository } from 'typeorm';
 import { EnrollmentPolicy } from './entities/enrollment-policy.entity';
 import { UpsertEnrollmentPolicyDto } from './dto/enrollment.dto';
 
@@ -20,9 +20,11 @@ export class EnrollmentService {
 
   /** 年度同步更新：同一年份/地区/类别做 upsert */
   async upsert(dto: UpsertEnrollmentPolicyDto): Promise<EnrollmentPolicy> {
-    const existing = await this.repo.findOne({
-      where: { year: dto.year, region: dto.region ?? null, category: dto.category },
-    });
+    // region 可空，TypeORM 的 where 不接受 null，按有无地区分别查询
+    const where: FindOptionsWhere<EnrollmentPolicy> = { year: dto.year, category: dto.category };
+    if (dto.region) where.region = dto.region;
+
+    const existing = await this.repo.findOne({ where });
     if (existing) {
       existing.title = dto.title;
       existing.content = dto.content;

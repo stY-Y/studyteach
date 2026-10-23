@@ -5,7 +5,7 @@ export interface AuthUser {
   id: string;
   role: string;
   username: string;
-  schoolId?: string;
+  schoolId?: string | null;
   name?: string;
 }
 

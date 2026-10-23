@@ -3,12 +3,14 @@ import { UserRole } from '@teachstudy/shared';
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { usersApi, type UserItem } from '../../api/users';
+import { schoolsApi, type SchoolItem } from '../../api/schools';
 import { ROLE_CONFIG } from '../../config/modules';
 import { formatTime } from '../../utils/format';
 
 const router = useRouter();
 
 const users = ref<UserItem[]>([]);
+const schools = ref<SchoolItem[]>([]);
 const total = ref(0);
 const page = ref(1);
 const PAGE_SIZE = 20;
@@ -28,12 +30,18 @@ const form = ref({
   role: UserRole.STUDENT,
   name: '',
   phone: '',
+  schoolId: '',
 });
 
 const CREATABLE_ROLES = [UserRole.STUDENT, UserRole.TEACHER, UserRole.PARENT];
 
 function roleLabel(role: string): string {
   return ROLE_CONFIG[role as UserRole]?.label ?? role;
+}
+
+function schoolName(id?: string | null): string {
+  if (!id) return '未设置';
+  return schools.value.find((s) => s.id === id)?.name ?? id.slice(0, 8) + '…';
 }
 
 async function load(): Promise<void> {
@@ -70,9 +78,10 @@ async function create(): Promise<void> {
       role: form.value.role,
       name: form.value.name.trim() || undefined,
       phone: form.value.phone.trim() || undefined,
+      schoolId: form.value.schoolId || undefined,
     });
     tip.value = `已创建账号「${form.value.username.trim()}」`;
-    form.value = { username: '', password: '', role: UserRole.STUDENT, name: '', phone: '' };
+    form.value = { username: '', password: '', role: UserRole.STUDENT, name: '', phone: '', schoolId: '' };
     showForm.value = false;
     page.value = 1;
     await load();
@@ -101,7 +110,14 @@ function goHome(): void {
   void router.push({ name: 'home' });
 }
 
-onMounted(load);
+onMounted(async () => {
+  try {
+    schools.value = await schoolsApi.list();
+  } catch {
+    schools.value = [];
+  }
+  await load();
+});
 </script>
 
 <template>
@@ -145,6 +161,16 @@ onMounted(load);
           <label class="field-label" for="u-phone">手机号（可空）</label>
           <input id="u-phone" v-model="form.phone" class="input" type="text" placeholder="用于家校联系" />
         </div>
+        <div class="field">
+          <label class="field-label" for="u-school">所属学校（学生/教师建议填）</label>
+          <select id="u-school" v-model="form.schoolId" class="input">
+            <option value="">暂不设置</option>
+            <option v-for="s in schools" :key="s.id" :value="s.id">
+              {{ s.name }}<template v-if="s.region">（{{ s.region }}）</template>
+            </option>
+          </select>
+          <p class="text-xs text-faint">决定资源「仅本校可见」范围与教师的审核范围。</p>
+        </div>
       </div>
 
       <div v-if="createError" class="alert alert-warning note">{{ createError }}</div>
@@ -176,7 +202,7 @@ onMounted(load);
             </p>
             <p class="text-xs text-faint">
               账号 {{ u.username }}<template v-if="u.phone"> · 手机 {{ u.phone }}</template>
-              · 创建于 {{ formatTime(u.createdAt) }}
+              · {{ schoolName(u.schoolId) }} · 创建于 {{ formatTime(u.createdAt) }}
             </p>
           </div>
         </li>
@@ -189,9 +215,6 @@ onMounted(load);
       </div>
     </section>
 
-    <section class="row">
-      <button class="btn" type="button" @click="goHome">返回工作台</button>
-    </section>
   </div>
 </template>
 

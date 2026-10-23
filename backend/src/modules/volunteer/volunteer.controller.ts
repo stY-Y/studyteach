@@ -1,4 +1,4 @@
-import { Body, Controller, DefaultValuePipe, Get, ParseIntPipe, Post, Query } from '@nestjs/common';
+import { Body, Controller, DefaultValuePipe, Delete, Get, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@teachstudy/shared';
 import { AuthUser, CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -29,5 +29,12 @@ export class VolunteerController {
   @ApiOperation({ summary: '院校库（按年份）' })
   colleges(@Query('year', new DefaultValuePipe(0), ParseIntPipe) year: number) {
     return this.volunteerService.listColleges(year || undefined);
+  }
+
+  @Delete('plans/:id')
+  @Roles(UserRole.STUDENT)
+  @ApiOperation({ summary: '删除本人的志愿方案' })
+  remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.volunteerService.remove(user.id, id);
   }
 }

@@ -35,8 +35,17 @@ export class JwtAuthGuard implements CanActivate {
     return true;
   }
 
-  private extractToken(request: { headers?: Record<string, string> }): string | undefined {
+  /**
+   * 取令牌：优先请求头；同时允许 query 中的 token ——
+   * 仅用于 <video>/<audio> 直连场景（这些标签无法自定义 Authorization 头）。
+   * 资源预览接口因此可以边下边播（配合 Range 请求）。
+   */
+  private extractToken(request: {
+    headers?: Record<string, string>;
+    query?: Record<string, unknown>;
+  }): string | undefined {
     const [type, token] = request.headers?.authorization?.split(' ') ?? [];
-    return type === 'Bearer' ? token : undefined;
+    if (type === 'Bearer' && token) return token;
+    return typeof request.query?.token === 'string' ? request.query.token : undefined;
   }
 }

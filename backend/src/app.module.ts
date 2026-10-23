@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { JwtModule } from '@nestjs/jwt';
 
@@ -17,6 +18,7 @@ import { InfraModule } from './infra/infra.module';
 import { AiModule } from './ai/ai.module';
 
 import { AuthModule } from './modules/auth/auth.module';
+import { SchoolsModule } from './modules/schools/schools.module';
 import { UsersModule } from './modules/users/users.module';
 import { KnowledgeModule } from './modules/knowledge/knowledge.module';
 import { QuestionsModule } from './modules/questions/questions.module';
@@ -37,7 +39,13 @@ import { EnrollmentModule } from './modules/enrollment/enrollment.module';
     // 数据库（better-sqlite3 默认，生产可切换 mysql/postgres）
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (cs: ConfigService) => cs.get('database'),
+      useFactory: (cs: ConfigService) => {
+        const options = cs.get<TypeOrmModuleOptions>('database');
+        if (!options) {
+          throw new Error('数据库配置缺失：请检查 .env 与 src/config/configuration.ts');
+        }
+        return options;
+      },
     }),
 
     // 全局限流
@@ -66,6 +74,7 @@ import { EnrollmentModule } from './modules/enrollment/enrollment.module';
 
     // 业务模块
     AuthModule,
+    SchoolsModule,
     UsersModule,
     KnowledgeModule,
     QuestionsModule,

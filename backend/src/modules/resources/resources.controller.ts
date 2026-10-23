@@ -4,15 +4,20 @@ import {
   DefaultValuePipe,
   Delete,
   Get,
+  Headers,
+  HttpException,
+  HttpStatus,
   Param,
   ParseIntPipe,
   Patch,
   Post,
   Query,
+  Res,
   StreamableFile,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@teachstudy/shared';
@@ -81,13 +86,36 @@ export class ResourcesController {
   }
 
   @Get(':id/preview')
-  @ApiOperation({ summary: '在线预览资源（inline 返回，不计下载量）' })
-  async preview(@Param('id') id: string): Promise<StreamableFile> {
+  @ApiOperation({ summary: '在线预览（inline 返回，不计下载量）；音视频支持 Range 边下边播' })
+  async preview(
+    @Param('id') id: string,
+    @Headers('range') range: string | undefined,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
     const { filename, buffer, mime } = await this.resourcesService.getPreview(id);
-    return new StreamableFile(buffer, {
-      type: mime,
-      disposition: `inline; filename*=UTF-8''${encodeURIComponent(filename)}`,
-    });
+    const total = buffer.length;
+
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(filename)}`);
+
+    // Range 请求：只返回指定字节段，让播放器边下边播、可拖动进度
+    const matched = range ? /bytes=(\d*)-(\d*)/.exec(range) : null;
+    if (matched) {
+      const start = matched[1] ? parseInt(matched[1], 10) : 0;
+      const end = matched[2] ? parseInt(matched[2], 10) : total - 1;
+      const safeEnd = Math.min(end, total - 1);
+
+      if (start > safeEnd || start >= total) {
+        res.setHeader('Content-Range', `bytes */${total}`);
+        throw new HttpException('请求的字节范围无效', HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE);
+      }
+
+      res.setHeader('Content-Range', `bytes ${start}-${safeEnd}/${total}`);
+      res.status(206);
+      return new StreamableFile(buffer.subarray(start, safeEnd + 1), { type: mime });
+    }
+
+    return new StreamableFile(buffer, { type: mime });
   }
 
   @Get(':id/download')
@@ -100,9 +128,16 @@ export class ResourcesController {
     });
   }
 
+  @Get('pending')
+  @Roles(UserRole.TEACHER, UserRole.ADMIN)
+  @ApiOperation({ summary: '待审核队列（校级审核 / 平台复核；教师限本校）' })
+  pending(@CurrentUser() user: AuthUser) {
+    return this.resourcesService.listPending(user);
+  }
+
   @Post(':id/review')
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: '双层审核：校级审核 + 平台复核（管理员）' })
+  @Roles(UserRole.TEACHER, UserRole.ADMIN)
+  @ApiOperation({ summary: '双层审核：校级审核（教师/管理员）+ 平台复核（仅管理员）' })
   review(@Param('id') id: string, @CurrentUser() user: AuthUser, @Body() dto: ReviewResourceDto) {
     return this.resourcesService.review(id, user, dto);
   }

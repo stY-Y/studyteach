@@ -2,6 +2,7 @@
 import { ResourceType, StudyStage, Subject } from '@teachstudy/shared';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { API_BASE_URL, getToken } from '../../api/http';
 import { resourcesApi, type ResourceItem } from '../../api/resources';
 import { usersApi } from '../../api/users';
 import {
@@ -168,6 +169,17 @@ async function openPreview(item: ResourceItem): Promise<void> {
   previewLoading.value = true;
   document.body.classList.add('preview-open');
   try {
+    // 音视频走「带令牌的直连地址」：后端支持 Range，浏览器可边下边播、拖动进度
+    if (item.format && ['.mp4', '.webm', '.mov', '.mp3', '.m4a', '.wav', '.ogg'].includes(item.format.toLowerCase())) {
+      previewKind.value = item.format.toLowerCase().startsWith('.mp3') ||
+        ['.m4a', '.wav', '.ogg'].includes(item.format.toLowerCase())
+        ? 'audio'
+        : 'video';
+      previewUrl.value = `${API_BASE_URL}/resources/${item.id}/preview?token=${encodeURIComponent(getToken() ?? '')}`;
+      previewLoading.value = false;
+      return;
+    }
+
     const { blob, mime } = await resourcesApi.preview(item.id);
     const kind = previewKindOf(item.format, mime);
     previewKind.value = kind;
@@ -380,9 +392,6 @@ onUnmounted(() => {
       </div>
     </section>
 
-    <section class="row">
-      <button class="btn" type="button" @click="goHome">返回工作台</button>
-    </section>
 
     <!-- 在线预览弹层：点开即看，下载/离线都不是必须的 -->
     <div v-if="previewing" class="preview-overlay" @click.self="closePreview">

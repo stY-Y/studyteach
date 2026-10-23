@@ -34,6 +34,17 @@ export interface UserItem {
   updatedAt: string;
 }
 
+/** 学生列表项（教师/管理员可见，教师限本校） */
+export interface StudentListItem {
+  id: string;
+  username: string;
+  name?: string | null;
+  schoolId?: string | null;
+  grade?: string | null;
+  className?: string | null;
+  subjects?: string[] | null;
+}
+
 /** 家校绑定关系 */
 export interface ParentLink {
   id?: string;
@@ -52,9 +63,32 @@ export type CreateUserBody = {
   schoolId?: string;
 };
 
+/** 学生档案编辑（PUT /users/me/student-profile，后端为 upsert） */
+export type StudentProfileInput = {
+  /** 所属学校 id（来自 GET /schools） */
+  schoolId?: string;
+  /** 年级自由文本，建议存规范写法：一年级…六年级 / 七年级…九年级 / 高一…高三 */
+  grade?: string;
+  className?: string;
+  /** 选科，存中文标签（如 物理） */
+  subjects?: string[];
+  guardianPhone?: string;
+};
+
 export const usersApi = {
   /** 当前用户（含学生档案），可离线缓存 */
   me: () => http.get<MeResult>('/users/me', { cache: true }),
+
+  /** 学生：保存本人档案（年级/班级/选科/监护人手机） */
+  saveStudentProfile: (body: StudentProfileInput) =>
+    http.put<StudentProfile>('/users/me/student-profile', body),
+
+  /** 修改本人密码（需提供原密码） */
+  changePassword: (body: { oldPassword: string; newPassword: string }) =>
+    http.patch<{ updated: true }>('/users/me/password', body),
+
+  /** 教师/管理员：可见学生列表（教师限本校） */
+  students: () => http.get<StudentListItem[]>('/users/students', { cache: true }),
 
   /** 管理员：用户列表（后端返回 [列表, 总数]） */
   list: (page = 1, pageSize = 20) =>

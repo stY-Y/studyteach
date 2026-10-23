@@ -5,6 +5,7 @@ import { Public } from '../../common/decorators/public.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { KnowledgeService } from './knowledge.service';
 import { CreateKnowledgePointDto, UpdateKnowledgePointDto } from './dto/knowledge.dto';
+import type { KnowledgeNode } from './knowledge.service';
 
 @ApiTags('知识图谱')
 @Controller('knowledge')
@@ -21,7 +22,7 @@ export class KnowledgeController {
   @Public()
   @Get('tree')
   @ApiOperation({ summary: '知识点树' })
-  tree(@Query('subject') subject?: Subject) {
+  tree(@Query('subject') subject?: Subject): Promise<KnowledgeNode[]> {
     return this.knowledgeService.tree(subject);
   }
 

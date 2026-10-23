@@ -32,6 +32,11 @@ async function load(): Promise<void> {
   } finally {
     loading.value = false;
     localCached.value = offline.size();
+    // 汇总已缓存资源体积
+    totalBytes.value = (manifest.value?.items ?? []).reduce(
+      (sum, i) => sum + (resources.value[i.resourceId]?.fileSize ?? 0),
+      0,
+    );
   }
 }
 
@@ -43,13 +48,36 @@ async function release(resourceId: string): Promise<void> {
     await load();
   } catch (err) {
     error.value = (err as Error).message;
-  }
-}
+  }}
 
 function clearLocalCache(): void {
   const removed = offline.clear();
   localCached.value = offline.size();
   tip.value = removed > 0 ? `已清理 ${removed} 条本地缓存` : '当前没有本地缓存';
+}
+
+/** 已缓存资源的总大小（用于「占用空间」提示与一键清空） */
+const totalBytes = ref(0);
+
+/** 一键清空全部离线资源（逐个调接口，逐个失败不阻塞其余） */
+async function clearAllOffline(): Promise<void> {
+  const ids = manifest.value?.items.map((i) => i.resourceId) ?? [];
+  if (ids.length === 0) {
+    tip.value = '当前没有离线资源';
+    return;
+  }
+  let done = 0;
+  let failed = 0;
+  for (const id of ids) {
+    try {
+      await resourcesApi.releaseOffline(id);
+      done += 1;
+    } catch {
+      failed += 1;
+    }
+  }
+  tip.value = failed > 0 ? `已清理 ${done} 份，${failed} 份失败，请重试` : `已清空 ${done} 份离线资源`;
+  await load();
 }
 
 function itemTitle(id: string): string {
@@ -80,7 +108,10 @@ onMounted(load);
           {{ isOnline ? '当前在线' : '当前离线' }}
         </span>
         <span class="badge badge-primary">资源缓存 {{ manifest?.count ?? 0 }} 条</span>
+        <span class="badge">占用约 {{ formatSize(totalBytes) }}</span>
         <span class="badge">本地缓存 {{ localCached }} 条</span>
+        <div class="spacer" />
+        <button class="btn btn-sm" type="button" @click="clearAllOffline">一键清空</button>
       </div>
     </section>
 
@@ -123,9 +154,6 @@ onMounted(load);
       <button class="btn btn-sm note" type="button" @click="clearLocalCache">清理本地缓存（{{ localCached }} 条）</button>
     </section>
 
-    <section class="row">
-      <button class="btn" type="button" @click="goHome">返回工作台</button>
-    </section>
   </div>
 </template>
 

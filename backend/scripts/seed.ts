@@ -25,6 +25,7 @@ import { Question } from '../src/modules/questions/entities/question.entity';
 import { College } from '../src/modules/volunteer/entities/college.entity';
 import { EnrollmentPolicy } from '../src/modules/enrollment/entities/enrollment-policy.entity';
 import { Resource } from '../src/modules/resources/entities/resource.entity';
+import { School } from '../src/modules/schools/entities/school.entity';
 import { StorageService } from '../src/infra/storage/storage.service';
 import { ResourceStatus } from '@teachstudy/shared';
 
@@ -36,6 +37,7 @@ import {
   SEED_QUESTIONS,
   SEED_RESOURCES,
   SEED_SCHOOL_ID,
+  SEED_SCHOOLS,
   SEED_USERS,
 } from './seed-data';
 
@@ -47,6 +49,7 @@ const FORCE = process.argv.includes('--force');
 const stats = {
   kpInserted: 0,
   kpUpdated: 0,
+  schoolUpserted: 0,
   questionInserted: 0,
   questionRemoved: 0,
   userInserted: 0,
@@ -96,6 +99,7 @@ async function main(): Promise<void> {
     if (FORCE) await removeSeedQuestions(ds);
 
     const codeToId = await seedKnowledgePoints(ds);
+    await seedSchools(ds);
     await seedQuestions(ds, codeToId);
     await seedColleges(ds);
     await seedEnrollment(ds);
@@ -107,6 +111,7 @@ async function main(): Promise<void> {
 
   console.log('\n=== 播种完成 ===');
   line('知识点', `新增 ${stats.kpInserted}，更新 ${stats.kpUpdated}`);
+  line('学校', `写入 ${stats.schoolUpserted}`);
   line('题目', `新增 ${stats.questionInserted}${stats.questionRemoved ? `（清理 ${stats.questionRemoved}）` : ''}`);
   line('用户', `新增 ${stats.userInserted}`);
   line('家校绑定', `新增 ${stats.linkInserted}`);
@@ -129,6 +134,21 @@ async function main(): Promise<void> {
 async function removeSeedQuestions(ds: DataSource): Promise<void> {
   const result = await ds.getRepository(Question).delete({ source: SEED_QUESTION_SOURCE });
   stats.questionRemoved = result.affected ?? 0;
+}
+
+/** 学校：按 id upsert（演示数据） */
+async function seedSchools(ds: DataSource): Promise<void> {
+  const repo = ds.getRepository(School);
+
+  for (const s of SEED_SCHOOLS) {
+    const found = await repo.findOne({ where: { id: s.id } });
+    if (found) {
+      await repo.update(found.id, { name: s.name, region: s.region, type: s.type });
+    } else {
+      await repo.save(repo.create(s));
+    }
+    stats.schoolUpserted += 1;
+  }
 }
 
 /** 知识点：按 code upsert，返回 code -> id 映射 */
