@@ -38,6 +38,14 @@ const grade = ref('');
 const savingClass = ref(false);
 const GRADES = Array.from({ length: 12 }, (_, i) => gradeLabel(i + 1));
 
+/** 修改密码（并入设置页） */
+const oldPassword = ref('');
+const newPassword = ref('');
+const confirmNew = ref('');
+const savingPassword = ref(false);
+const pwdError = ref('');
+const pwdTip = ref('');
+
 /** 注销账号 */
 const deletePassword = ref('');
 const deleteConfirm = ref('');
@@ -187,6 +195,43 @@ async function saveClass(): Promise<void> {
   }
 }
 
+async function changePassword(): Promise<void> {
+  pwdError.value = '';
+  pwdTip.value = '';
+  if (!oldPassword.value || !newPassword.value) {
+    pwdError.value = '请填写原密码与新密码';
+    return;
+  }
+  if (newPassword.value.length < 6) {
+    pwdError.value = '新密码至少 6 位';
+    return;
+  }
+  if (newPassword.value !== confirmNew.value) {
+    pwdError.value = '两次输入的新密码不一致';
+    return;
+  }
+  if (newPassword.value === oldPassword.value) {
+    pwdError.value = '新密码不能与原密码相同';
+    return;
+  }
+
+  savingPassword.value = true;
+  try {
+    await usersApi.changePassword({
+      oldPassword: oldPassword.value,
+      newPassword: newPassword.value,
+    });
+    pwdTip.value = '密码已修改，下次登录请使用新密码。';
+    oldPassword.value = '';
+    newPassword.value = '';
+    confirmNew.value = '';
+  } catch (err) {
+    pwdError.value = (err as Error).message;
+  } finally {
+    savingPassword.value = false;
+  }
+}
+
 async function doDelete(): Promise<void> {
   error.value = '';
   tip.value = '';
@@ -273,6 +318,50 @@ onUnmounted(clearTimer);
         <button class="btn btn-primary self-start" type="button" :disabled="changing" @click="changePhone">
           {{ changing ? '换绑中…' : '确认换绑' }}
         </button>
+      </section>
+
+      <!-- 修改密码 -->
+      <section class="card stack">
+        <h2 class="section-title">修改密码</h2>
+        <div class="field">
+          <label class="field-label" for="set-old-pwd">原密码</label>
+          <input
+            id="set-old-pwd"
+            v-model="oldPassword"
+            class="input"
+            type="password"
+            autocomplete="current-password"
+            placeholder="请输入当前密码"
+          />
+        </div>
+        <div class="field">
+          <label class="field-label" for="set-new-pwd">新密码（至少 6 位）</label>
+          <input
+            id="set-new-pwd"
+            v-model="newPassword"
+            class="input"
+            type="password"
+            autocomplete="new-password"
+            placeholder="请输入新密码"
+          />
+        </div>
+        <div class="field">
+          <label class="field-label" for="set-confirm-pwd">确认新密码</label>
+          <input
+            id="set-confirm-pwd"
+            v-model="confirmNew"
+            class="input"
+            type="password"
+            autocomplete="new-password"
+            placeholder="再输一次新密码"
+          />
+        </div>
+        <div v-if="pwdError" class="alert alert-danger">{{ pwdError }}</div>
+        <div v-if="pwdTip" class="alert alert-info">{{ pwdTip }}</div>
+        <button class="btn btn-primary self-start" type="button" :disabled="savingPassword" @click="changePassword">
+          {{ savingPassword ? '提交中…' : '确认修改' }}
+        </button>
+        <p class="text-xs text-faint">管理员创建的账号使用随机初始密码，建议首次登录后立即修改。</p>
       </section>
 
       <!-- 学生：学校与年级 -->

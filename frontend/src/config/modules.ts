@@ -29,7 +29,6 @@ export const ROLE_CONFIG: Record<UserRole, RoleConfig> = {
     tagline: '诊断薄弱点 · 补漏学习 · 自主提升',
     modules: [
       { key: 'diagnosis', name: '知识诊断', icon: '🧭', desc: '10-15 道检测题，10 秒内定位薄弱知识点并生成补漏路径', api: 'POST /diagnosis/start', path: '/diagnosis', ready: true },
-      { key: 'password', name: '修改密码', icon: '🔐', desc: '初始密码为随机生成，首次登录请尽快修改', api: 'PATCH /users/me/password', path: '/password', ready: true },
       { key: 'grading', name: '智能批改', icon: '✍️', desc: '自动批改主客观题，给出错因分析与启发式点拨', api: 'POST /grading', path: '/grading', ready: true },
       { key: 'gradingHistory', name: '批改记录', icon: '📒', desc: '汇总每次练习的得分、错因与点拨，错题值得回头看', api: 'GET /grading', path: '/grading-history', ready: true },
       { key: 'reports', name: '我的学情', icon: '📈', desc: '极简学情报表：掌握度、薄弱点、练习量一目了然', api: 'POST /reports/generate', path: '/reports', ready: true },
@@ -49,7 +48,6 @@ export const ROLE_CONFIG: Record<UserRole, RoleConfig> = {
     tagline: '智能组卷 · 资源共建 · 学情掌握',
     modules: [
       { key: 'papers', name: '智能组卷', icon: '📝', desc: '设定知识点/难度/题量，AI 出选题计划并从题库抽真题', api: 'POST /papers/generate', path: '/papers', ready: true },
-      { key: 'password', name: '修改密码', icon: '🔐', desc: '初始密码为随机生成，首次登录请尽快修改', api: 'PATCH /users/me/password', path: '/password', ready: true },
       { key: 'questions', name: '题库管理', icon: '🗂️', desc: '录入与检索题目，标注知识点、难度、能力要求与典型错因', api: 'GET /questions', path: '/questions', ready: true },
       { key: 'upload', name: '资源上传', icon: '⬆️', desc: '批量上传校本试题、导学案、电子书、视频、音频', api: 'POST /resources/upload', path: '/upload', ready: true },
       { key: 'mine', name: '我的资源', icon: '📁', desc: '管理本校上传资源，可修改开放范围或下架', api: 'GET /resources/mine', path: '/resources/mine', ready: true },
@@ -66,7 +64,6 @@ export const ROLE_CONFIG: Record<UserRole, RoleConfig> = {
     tagline: '内容审核 · 用户管理 · 数据维护',
     modules: [
       { key: 'users', name: '用户管理', icon: '👥', desc: '管理学生/教师/家长账号与档案', api: 'GET /users', path: '/users', ready: true },
-      { key: 'password', name: '修改密码', icon: '🔐', desc: '初始密码为随机生成，首次登录请尽快修改', api: 'PATCH /users/me/password', path: '/password', ready: true },
       { key: 'review', name: '资源复核', icon: '✅', desc: '双层审核：校级审核 + 平台复核，通过后学生即可查看下载', api: 'POST /resources/:id/review', path: '/review', ready: true },
       { key: 'knowledge', name: '知识图谱维护', icon: '🌳', desc: '新增/调整知识点，支撑全平台精准诊断', api: 'POST /knowledge', path: '/knowledge', ready: true },
       { key: 'enrollment', name: '升学数据', icon: '📊', desc: '每年同步官方招生政策、投档分数线与选科要求', api: 'POST /enrollment', path: '/enrollment', ready: true },
@@ -82,7 +79,6 @@ export const ROLE_CONFIG: Record<UserRole, RoleConfig> = {
     tagline: '远程了解孩子学习情况',
     modules: [
       { key: 'progress', name: '孩子学情', icon: '👦', desc: '实时查看已绑定学生的学习进度与薄弱点', api: 'GET /school-home/children-progress', path: '/children', ready: true },
-      { key: 'password', name: '修改密码', icon: '🔐', desc: '初始密码为随机生成，首次登录请尽快修改', api: 'PATCH /users/me/password', path: '/password', ready: true },
       { key: 'link', name: '绑定学生', icon: '🔗', desc: '输入孩子的账号完成绑定，外出务工也能随时关注', api: 'POST /users/parent/link', path: '/link', ready: true },
       { key: 'reports', name: '学情报表', icon: '📈', desc: '查看孩子的极简版学情报表', api: 'GET /reports/student/:id', path: '/children', ready: true },
       { key: 'settings', name: '账号与安全', icon: '⚙️', desc: '修改姓名、换绑手机号，或注销账号', api: 'PATCH /auth/phone', path: '/settings', ready: true },

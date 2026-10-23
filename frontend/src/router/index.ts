@@ -81,11 +81,9 @@ const router = createRouter({
           meta: { title: '绑定学生', roles: [UserRole.PARENT] },
         },
         {
-          // 四端共用 · 修改密码（不限定角色，任何登录用户都可进入）
+          // 修改密码已并入「账号与安全」，旧链接自动重定向
           path: 'password',
-          name: 'password',
-          component: () => import('../views/shared/ChangePasswordView.vue'),
-          meta: { title: '修改密码' },
+          redirect: { name: 'settings' },
         },
         {
           // 四端共用 · 账号与安全（姓名/手机号换绑、学校班级、注销）
