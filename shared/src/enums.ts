@@ -3,12 +3,19 @@
  * 前后端共用的领域枚举，保证四端入口语义一致。
  */
 
-/** 用户角色：学生端 / 教师端 / 管理员端 / 家长端 */
+/**
+ * 用户角色：学生 / 教师（班主任）/ 平台管理员 / 家长
+ * 以及组织管理层：学校管理员 / 年级管理员
+ */
 export enum UserRole {
   STUDENT = 'student',
   TEACHER = 'teacher',
   ADMIN = 'admin',
   PARENT = 'parent',
+  /** 学校管理员：平台任命，管理本校年级与年级管理员 */
+  SCHOOL_ADMIN = 'school_admin',
+  /** 年级管理员：学校任命，管理本年级班级与班主任 */
+  GRADE_ADMIN = 'grade_admin',
 }
 
 /** 学段：小学 / 初中 / 高中 */

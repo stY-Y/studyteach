@@ -409,7 +409,7 @@ async function onSubmit(): Promise<void> {
 
 @media (min-width: 480px) {
   .entrance-grid {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 </style>

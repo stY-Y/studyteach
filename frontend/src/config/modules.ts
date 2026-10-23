@@ -56,6 +56,7 @@ export const ROLE_CONFIG: Record<UserRole, RoleConfig> = {
       { key: 'classes', name: '我的班级', icon: '🏫', desc: '创建班级、审核学生入班申请、管理班级成员', api: 'POST /classes', path: '/class', ready: true },
       { key: 'chat', name: '班级聊天', icon: '💬', desc: '班级群聊内发布作业、查看提交与答疑（仅本班创建教师可见）', api: 'GET /chat/messages', path: '/chat', ready: true },
       { key: 'parentChat', name: '家长沟通', icon: '👨‍👩‍👧', desc: '查看并回复本班家长的留言（仅本班创建教师可见）', api: 'GET /parent-chat/threads', path: '/parent-chat', ready: true },
+      { key: 'notices', name: '通知', icon: '📢', desc: '查看年级管理员下发到本班的通知', api: 'GET /org/notices', path: '/notices', ready: true },
       { key: 'settings', name: '账号与安全', icon: '⚙️', desc: '修改姓名、换绑手机号，或注销账号', api: 'PATCH /auth/phone', path: '/settings', ready: true },
     ],
   },
@@ -69,9 +70,28 @@ export const ROLE_CONFIG: Record<UserRole, RoleConfig> = {
       { key: 'knowledge', name: '知识图谱维护', icon: '🌳', desc: '新增/调整知识点，支撑全平台精准诊断', api: 'POST /knowledge', path: '/knowledge', ready: true },
       { key: 'enrollment', name: '升学数据', icon: '📊', desc: '每年同步官方招生政策、投档分数线与选科要求', api: 'POST /enrollment', path: '/enrollment', ready: true },
       { key: 'resources', name: '资源总览', icon: '📚', desc: '查看全平台共享资源与下载热度', api: 'GET /resources', path: '/resources', ready: true },
-      { key: 'classes', name: '班级管理', icon: '🏫', desc: '查看全校班级、成员与入班申请', api: 'GET /classes/mine', path: '/class', ready: true },
-      { key: 'chat', name: '班级聊天', icon: '💬', desc: '查看各班级群聊情况，便于管理与维护', api: 'GET /chat/messages', path: '/chat', ready: true },
+      { key: 'schoolManage', name: '学校管理', icon: '🏫', desc: '学校增删、学校管理员任命与卸任（平台级）', api: 'GET /org/schools', path: '/school-manage', ready: true },
       { key: 'settings', name: '账号与安全', icon: '⚙️', desc: '修改姓名、换绑手机号，或注销账号', api: 'PATCH /auth/phone', path: '/settings', ready: true },
+    ],
+  },
+  [UserRole.SCHOOL_ADMIN]: {
+    role: UserRole.SCHOOL_ADMIN,
+    label: '学校管理员端',
+    tagline: '年级管理 · 人事任命 · 通知下发',
+    modules: [
+      { key: 'grades', name: '年级管理', icon: '🏫', desc: '新增/删除年级，任命或卸任年级管理员', api: 'GET /org/grades', path: '/grade-manage', ready: true },
+      { key: 'notices', name: '通知', icon: '📢', desc: '查看上级通知，向年级管理员下发指令', api: 'GET /org/notices', path: '/notices', ready: true },
+      { key: 'settings', name: '账号与安全', icon: '⚙️', desc: '修改密码、换绑手机号，或注销账号', api: 'PATCH /auth/phone', path: '/settings', ready: true },
+    ],
+  },
+  [UserRole.GRADE_ADMIN]: {
+    role: UserRole.GRADE_ADMIN,
+    label: '年级管理员端',
+    tagline: '班级管理 · 班主任任命 · 通知下发',
+    modules: [
+      { key: 'classes', name: '班级管理', icon: '🏫', desc: '管理本年级班级，任命或卸任班主任', api: 'GET /org/classes', path: '/class-manage', ready: true },
+      { key: 'notices', name: '通知', icon: '📢', desc: '查看学校通知，向班主任下发通知', api: 'GET /org/notices', path: '/notices', ready: true },
+      { key: 'settings', name: '账号与安全', icon: '⚙️', desc: '修改密码、换绑手机号，或注销账号', api: 'PATCH /auth/phone', path: '/settings', ready: true },
     ],
   },
   [UserRole.PARENT]: {
@@ -92,6 +112,8 @@ export const ROLE_CONFIG: Record<UserRole, RoleConfig> = {
 export const ROLE_ENTRANCES = [
   { role: UserRole.STUDENT, label: '学生端', icon: '🎒', desc: '诊断 · 练习 · 提升' },
   { role: UserRole.TEACHER, label: '教师端', icon: '👩‍🏫', desc: '组卷 · 资源 · 学情' },
-  { role: UserRole.ADMIN, label: '管理员端', icon: '🛠️', desc: '审核 · 用户 · 数据' },
+  { role: UserRole.ADMIN, label: '平台管理员', icon: '🛠️', desc: '学校 · 审核 · 数据' },
+  { role: UserRole.SCHOOL_ADMIN, label: '学校管理员', icon: '🏫', desc: '年级 · 人事' },
+  { role: UserRole.GRADE_ADMIN, label: '年级管理员', icon: '🏷️', desc: '班级 · 班主任' },
   { role: UserRole.PARENT, label: '家长端', icon: '👨‍👩‍👦', desc: '远程看学情' },
 ];

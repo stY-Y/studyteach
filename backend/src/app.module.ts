@@ -34,6 +34,7 @@ import { ClassesModule } from './modules/classes/classes.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { HomeworkModule } from './modules/homework/homework.module';
 import { ParentChatModule } from './modules/parent-chat/parent-chat.module';
+import { OrgModule } from './modules/org/org.module';
 
 @Module({
   imports: [
@@ -94,6 +95,7 @@ import { ParentChatModule } from './modules/parent-chat/parent-chat.module';
     ChatModule,
     HomeworkModule,
     ParentChatModule,
+    OrgModule,
   ],
   controllers: [AppController],
   providers: [

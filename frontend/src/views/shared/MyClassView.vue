@@ -317,31 +317,11 @@ onUnmounted(stopPoll);
 
     <!-- ================= 教师 / 管理员 ================= -->
     <template v-else>
-      <section class="card stack">
-        <h2 class="section-title">创建班级</h2>
-        <div class="field">
-          <label class="field-label" for="cls-school">学校</label>
-          <select id="cls-school" v-model="form.schoolId" class="input" :disabled="!isAdmin">
-            <option value="">请选择学校</option>
-            <option v-for="s in schools" :key="s.id" :value="s.id">{{ s.name }}</option>
-          </select>
-        </div>
-        <div class="field-row">
-          <div class="field">
-            <label class="field-label" for="cls-grade">年级</label>
-            <select id="cls-grade" v-model="form.grade" class="input">
-              <option value="">请选择</option>
-              <option v-for="g in GRADES" :key="g" :value="g">{{ g }}</option>
-            </select>
-          </div>
-          <div class="field">
-            <label class="field-label" for="cls-name">班级名</label>
-            <input id="cls-name" v-model.trim="form.className" class="input" type="text" maxlength="64" placeholder="如 2 班" />
-          </div>
-        </div>
-        <button class="btn btn-primary self-start" type="button" :disabled="creating" @click="createClass">
-          {{ creating ? '创建中…' : '创建班级' }}
-        </button>
+      <section class="card">
+        <p class="text-sm text-soft">
+          班级由<b>年级管理员</b>统一创建并任命班主任。若你被任命为某班班主任，该班级会自动出现在下方，
+          你可以审核学生入班申请、进入班级聊天与家长沟通。
+        </p>
       </section>
 
       <section class="card stack">

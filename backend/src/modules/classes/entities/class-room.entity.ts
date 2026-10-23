@@ -12,6 +12,10 @@ export class ClassRoom {
   @Column({ name: 'school_id', type: 'varchar', length: 64 })
   schoolId: string;
 
+  /** 所属年级 id（年级管理维度） */
+  @Column({ name: 'grade_id', type: 'varchar', length: 64, nullable: true })
+  gradeId: string | null;
+
   @Column({ type: 'varchar', length: 32 })
   grade: string;
 

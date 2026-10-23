@@ -65,6 +65,22 @@ export const SEED_USERS: SeedUser[] = [
     phone: '13800000004',
     schoolId: SEED_SCHOOL_ID,
   },
+  {
+    username: 'schooladmin',
+    password: 'School@2026',
+    role: UserRole.SCHOOL_ADMIN,
+    name: '学校管理员',
+    phone: '13800000005',
+    schoolId: SEED_SCHOOL_ID,
+  },
+  {
+    username: 'gradeadmin',
+    password: 'Grade@2026',
+    role: UserRole.GRADE_ADMIN,
+    name: '年级管理员',
+    phone: '13800000006',
+    schoolId: SEED_SCHOOL_ID,
+  },
 ];
 
 /** 家校绑定关系（家长 -> 学生） */

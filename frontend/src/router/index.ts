@@ -93,6 +93,37 @@ const router = createRouter({
           meta: { title: '账号与安全' },
         },
         {
+          // 平台管理员 · 学校管理（学校增删、学校管理员任命/卸任）
+          path: 'school-manage',
+          name: 'schoolManage',
+          component: () => import('../views/admin/SchoolManageView.vue'),
+          meta: { title: '学校管理', roles: [UserRole.ADMIN] },
+        },
+        {
+          // 学校管理员 · 年级管理（年级增删、年级管理员任命/卸任、通知）
+          path: 'grade-manage',
+          name: 'gradeManage',
+          component: () => import('../views/school/GradeManageView.vue'),
+          meta: { title: '年级管理', roles: [UserRole.SCHOOL_ADMIN, UserRole.ADMIN] },
+        },
+        {
+          // 年级管理员 · 班级管理（班级增删、班主任任命/卸任、通知）
+          path: 'class-manage',
+          name: 'classManage',
+          component: () => import('../views/grade/ClassManageView.vue'),
+          meta: { title: '班级管理', roles: [UserRole.GRADE_ADMIN, UserRole.ADMIN] },
+        },
+        {
+          // 学校管理员/年级管理员/班主任 · 通知收件箱
+          path: 'notices',
+          name: 'notices',
+          component: () => import('../views/shared/NoticeView.vue'),
+          meta: {
+            title: '通知',
+            roles: [UserRole.SCHOOL_ADMIN, UserRole.GRADE_ADMIN, UserRole.TEACHER],
+          },
+        },
+        {
           // 学生/教师/管理员 · 我的班级（教师建班、学生申请、教师审核）
           path: 'class',
           name: 'myClass',
@@ -129,7 +160,8 @@ const router = createRouter({
           component: () => import('../views/shared/ChatView.vue'),
           meta: {
             title: '班级聊天',
-            roles: [UserRole.STUDENT, UserRole.TEACHER, UserRole.ADMIN],
+            // 平台管理员端不提供班级聊天
+            roles: [UserRole.STUDENT, UserRole.TEACHER],
           },
         },
         {

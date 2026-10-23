@@ -29,6 +29,7 @@ import { School } from '../src/modules/schools/entities/school.entity';
 import { ClassRoom } from '../src/modules/classes/entities/class-room.entity';
 import { ClassMember } from '../src/modules/classes/entities/class-member.entity';
 import { StudentProfile } from '../src/modules/users/entities/student-profile.entity';
+import { Grade } from '../src/modules/org/entities/grade.entity';
 import { StorageService } from '../src/infra/storage/storage.service';
 import { ResourceStatus, StudyStage } from '@teachstudy/shared';
 
@@ -108,6 +109,7 @@ async function main(): Promise<void> {
     await seedColleges(ds);
     await seedEnrollment(ds);
     await seedUsers(app);
+    await seedOrg(ds, app);
     await seedDemoClass(ds, app);
     await seedResources(ds, app);
   } finally {
@@ -517,6 +519,43 @@ async function seedUsers(app: INestApplicationContext): Promise<void> {
 }
 
 /**
+ * 演示组织架构：学校下建「七年级」「八年级」，年级管理员管理八年级。
+ * 平台管理员 → 学校管理员 → 年级管理员 → 班主任 的演示链路因此开箱可用。
+ */
+async function seedOrg(ds: DataSource, app: INestApplicationContext): Promise<void> {
+  const usersService = app.get(UsersService);
+  const grades = ds.getRepository(Grade);
+  const gradeAdmin = await usersService.findByUsername('gradeadmin');
+
+  const seedGrades: Array<{ name: string; adminId: string | null }> = [
+    { name: '七年级', adminId: null },
+    { name: '八年级', adminId: gradeAdmin?.id ?? null },
+  ];
+
+  for (const item of seedGrades) {
+    const exists = await grades.findOne({
+      where: { schoolId: SEED_SCHOOL_ID, name: item.name },
+    });
+    if (exists) {
+      if (item.adminId && !exists.gradeAdminId) {
+        await grades.update(exists.id, { gradeAdminId: item.adminId });
+      }
+      continue;
+    }
+    await grades.save(
+      grades.create({
+        schoolId: SEED_SCHOOL_ID,
+        name: item.name,
+        order: item.name === '七年级' ? 1 : 2,
+        gradeAdminId: item.adminId,
+      }),
+    );
+  }
+
+  console.log('  演示组织：七年级 / 八年级（年级管理员 gradeadmin 管理八年级）\n');
+}
+
+/**
  * 演示班级：teacher 创建「八年级 2 班」，student 已审核通过并绑定档案。
  * 新流程下学生必须加入班级才能使用聊天与作业，种子保证演示开箱可用。
  */
@@ -526,12 +565,17 @@ async function seedDemoClass(ds: DataSource, app: INestApplicationContext): Prom
   const student = await usersService.findByUsername('student');
   if (!teacher || !student) return;
 
+  const gradeEight = await ds
+    .getRepository(Grade)
+    .findOne({ where: { schoolId: SEED_SCHOOL_ID, name: '八年级' } });
+
   const rooms = ds.getRepository(ClassRoom);
   let room = await rooms.findOne({ where: { teacherId: teacher.id } });
   if (!room) {
     room = await rooms.save(
       rooms.create({
         schoolId: SEED_SCHOOL_ID,
+        gradeId: gradeEight?.id ?? null,
         grade: '八年级',
         className: '2 班',
         name: '八年级 2 班',
@@ -542,6 +586,8 @@ async function seedDemoClass(ds: DataSource, app: INestApplicationContext): Prom
       }),
     );
     console.log('  已创建演示班级：八年级 2 班（邀请码 QINGHE01）\n');
+  } else if (!room.gradeId && gradeEight) {
+    await rooms.update(room.id, { gradeId: gradeEight.id });
   }
 
   const members = ds.getRepository(ClassMember);
