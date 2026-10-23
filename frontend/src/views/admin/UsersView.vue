@@ -6,6 +6,7 @@ import {
   type HierarchyBucket,
   type HierarchyPerson,
   type HierarchyResult,
+  type HierarchySchool,
   type UserItem,
 } from '../../api/users';
 import { schoolsApi, type SchoolItem } from '../../api/schools';
@@ -144,11 +145,23 @@ function nextPage(): void {
 
 const kw = computed(() => keyword.value.trim().toLowerCase());
 
-function hit(p: HierarchyPerson): boolean {
+/** 通用文本命中：任一字段包含关键词即命中 */
+function textHit(...parts: Array<string | null | undefined>): boolean {
   if (!kw.value) return true;
-  return `${p.name}${p.username}${p.phone ?? ''}${p.extra ?? ''}`
+  return parts
+    .filter((x): x is string => Boolean(x))
+    .join('')
     .toLowerCase()
     .includes(kw.value);
+}
+
+function hit(p: HierarchyPerson): boolean {
+  return textHit(p.name, p.username, p.phone, p.extra);
+}
+
+/** 学校命中：学校名或所在地区（如「会泽」）命中 */
+function schoolHit(s: HierarchySchool): boolean {
+  return textHit(s.name, s.region);
 }
 
 function filterBucket(b: HierarchyBucket): HierarchyBucket {
@@ -163,24 +176,35 @@ function bucketSize(b: HierarchyBucket): number {
   return b.students.length + b.teachers.length + b.parents.length;
 }
 
-/** 有关键词时只保留命中的人员，并隐藏空的分支 */
+/**
+ * 有关键词时的过滤规则（由粗到细）：
+ *  - 学校名 / 地区命中 → 整所学校全部保留（按学校搜人）
+ *  - 年级名命中 → 整个年级全部保留
+ *  - 班级名命中 → 整个班级全部保留
+ *  - 否则按人员姓名 / 账号 / 手机号 / 岗位说明匹配
+ */
 const filteredTree = computed<HierarchyResult | null>(() => {
   const t = tree.value;
   if (!t || !kw.value) return t;
 
   const schools = t.schools
     .map((s) => {
+      if (schoolHit(s)) return s;
+
       const grades = s.grades
         .map((g) => {
+          if (textHit(g.name)) return g;
+
           const classes = g.classes
-            .map((c) => ({ ...c, ...filterBucket(c) }))
+            .map((c) => (textHit(c.name) ? c : { ...c, ...filterBucket(c) }))
             .filter((c) => bucketSize(c) > 0);
           return { ...g, classes, unassigned: filterBucket(g.unassigned) };
         })
         .filter((g) => g.classes.length > 0 || bucketSize(g.unassigned) > 0);
+
       return { ...s, grades, unassigned: filterBucket(s.unassigned) };
     })
-    .filter((s) => s.grades.length > 0 || bucketSize(s.unassigned) > 0);
+    .filter((s) => schoolHit(s) || s.grades.length > 0 || bucketSize(s.unassigned) > 0);
 
   return { ...t, schools, unassigned: filterBucket(t.unassigned) };
 });
@@ -198,6 +222,13 @@ const matchCount = computed(() => {
   }
   n += bucketSize(t.unassigned);
   return n;
+});
+
+/** 按学校名命中的学校数（用于提示「命中 N 人 · M 所学校」） */
+const schoolMatches = computed(() => {
+  const t = filteredTree.value;
+  if (!t || !kw.value) return 0;
+  return t.schools.filter((s) => schoolHit(s)).length;
 });
 
 function isOpen(map: Record<string, boolean>, id: string): boolean {
@@ -457,15 +488,17 @@ onMounted(async () => {
           </div>
 
           <div class="field note">
-            <label class="field-label" for="u-search">搜索姓名 / 账号 / 手机号</label>
+            <label class="field-label" for="u-search">搜索姓名 / 账号 / 手机号 / 学校</label>
             <input
               id="u-search"
               v-model="keyword"
               class="input"
               type="text"
-              placeholder="输入关键词，自动展开命中的班级"
+              placeholder="输入姓名、账号、手机号，或学校名（如「会泽县第一中学」「会泽」）"
             />
-            <p v-if="kw" class="text-xs text-faint">命中 {{ matchCount }} 人</p>
+            <p v-if="kw" class="text-xs text-faint">
+              命中 {{ matchCount }} 人<template v-if="schoolMatches > 0"> · {{ schoolMatches }} 所学校</template>
+            </p>
           </div>
         </template>
       </section>
@@ -479,6 +512,7 @@ onMounted(async () => {
         <button class="layer-head school-head" type="button" @click="toggleSchool(s.id)">
           <span class="caret">{{ isOpen(openSchools, s.id) ? '▾' : '▸' }}</span>
           <span class="layer-title">{{ s.name }}</span>
+          <span v-if="s.region" class="badge">{{ s.region }}</span>
           <span class="badge">{{ s.gradeCount }} 年级</span>
           <span class="badge">{{ s.totals.classes }} 班级</span>
           <span class="badge badge-primary">{{ s.totals.students }} 学生</span>
@@ -640,6 +674,9 @@ onMounted(async () => {
         <div class="spacer" />
         <button class="btn btn-sm" type="button" :disabled="loading" @click="load">刷新</button>
       </div>
+      <p class="text-xs text-faint note">
+        平铺列表按页显示全部账号；需要按学校 / 年级 / 班级筛选，请切换到「分层视图」。
+      </p>
 
       <p v-if="loading" class="text-sm text-soft note">加载中…</p>
       <div v-else-if="users.length === 0" class="empty note">还没有账号数据。</div>
