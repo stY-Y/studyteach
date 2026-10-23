@@ -99,6 +99,13 @@ export class UsersService {
     return this.users.findOne({ where: { id } });
   }
 
+  /** 按手机号查找（走盲索引，不查明文、不解密全表） */
+  findByPhone(phone: string): Promise<User | null> {
+    const hash = this.crypto.blindIndex(phone);
+    if (!hash) return Promise.resolve(null);
+    return this.users.findOne({ where: { phoneHash: hash } });
+  }
+
   /**
    * 教师/管理员：可见的学生列表（教师限本校，管理员可见全部）。
    * 供教师端「学情查看」选人使用 —— 这是此前缺的关键接口。
@@ -148,17 +155,66 @@ export class UsersService {
       passwordHash: this.hashPassword(dto.password),
       role: dto.role ?? UserRole.STUDENT,
       name: dto.name,
+      // 手机号：密文（可还原）+ 盲索引（可精确查找/唯一约束）
       phone: this.crypto.encrypt(dto.phone),
+      phoneHash: this.crypto.blindIndex(dto.phone),
       schoolId: dto.schoolId,
     });
     return this.users.save(user);
   }
 
+  /**
+   * 手机号注册：自动生成不可预测的登录账号（避免手机号被当作账号明文展示），
+   * 手机号本身只以「密文 + 盲索引」形式保存。
+   */
+  async createByPhone(input: {
+    phone: string;
+    password: string;
+    name?: string;
+    role?: UserRole;
+  }): Promise<User> {
+    const username = await this.generateUsername();
+    return this.create({
+      username,
+      password: input.password,
+      role: input.role ?? UserRole.STUDENT,
+      name: input.name,
+      phone: this.crypto.normalizePhone(input.phone) ?? input.phone,
+    });
+  }
+
+  /** 生成不可预测的登录账号（q + 8 位随机十六进制），并保证唯一 */
+  private async generateUsername(): Promise<string> {
+    for (let i = 0; i < 5; i += 1) {
+      const candidate = `qh${randomBytes(4).toString('hex')}`;
+      if (!(await this.findByUsername(candidate))) return candidate;
+    }
+    throw new ConflictException('账号生成失败，请重试');
+  }
+
+  /** 历史数据回填：为已有手机号但缺少盲索引的账号补写（种子/升级用） */
+  async backfillPhoneHashes(): Promise<number> {
+    const rows = await this.users.find();
+    let count = 0;
+    for (const user of rows) {
+      if (user.phone && !user.phoneHash) {
+        const plain = this.crypto.decrypt(user.phone);
+        const hash = this.crypto.blindIndex(plain);
+        if (hash) {
+          await this.users.update(user.id, { phoneHash: hash });
+          count += 1;
+        }
+      }
+    }
+    return count;
+  }
+
   async updateProfile(userId: string, dto: UpdateProfileDto): Promise<User | null> {
     const patch: Partial<User> = { ...dto };
-    // 手机号属敏感字段，入库前加密
+    // 手机号属敏感字段：入库加密，并同步盲索引
     if (dto.phone !== undefined) {
       patch.phone = this.crypto.encrypt(dto.phone);
+      patch.phoneHash = this.crypto.blindIndex(dto.phone);
     }
     await this.users.update(userId, patch);
     return this.findById(userId);

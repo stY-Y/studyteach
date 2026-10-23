@@ -1,9 +1,16 @@
 import { Body, Controller, Get, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { AuthUser, CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { AuthService } from './auth.service';
-import { LoginDto, RegisterDto } from './dto/auth.dto';
+import {
+  LoginDto,
+  PhoneLoginDto,
+  PhoneRegisterDto,
+  RegisterDto,
+  SendSmsCodeDto,
+} from './dto/auth.dto';
 
 @ApiTags('认证')
 @Controller('auth')
@@ -22,6 +29,30 @@ export class AuthController {
   @ApiOperation({ summary: '注册（学生/教师/家长，管理员不开放）' })
   register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
+  }
+
+  @Public()
+  @Post('sms/send')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @ApiOperation({ summary: '发送手机验证码（每 IP 每分钟最多 5 次）' })
+  sendSmsCode(@Body() dto: SendSmsCodeDto) {
+    return this.authService.sendSmsCode(dto.phone);
+  }
+
+  @Public()
+  @Post('register-phone')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @ApiOperation({ summary: '手机号注册（验证码 + 强密码，手机号加密存储）' })
+  registerByPhone(@Body() dto: PhoneRegisterDto) {
+    return this.authService.registerByPhone(dto);
+  }
+
+  @Public()
+  @Post('login-phone')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @ApiOperation({ summary: '手机号 + 密码登录（统一错误信息，防账号枚举）' })
+  loginByPhone(@Body() dto: PhoneLoginDto) {
+    return this.authService.loginByPhone(dto);
   }
 
   @Get('me')

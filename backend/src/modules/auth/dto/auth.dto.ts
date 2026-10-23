@@ -1,6 +1,20 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, MinLength } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  IsIn,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
+import { UserRole } from '@teachstudy/shared';
 import { CreateUserDto } from '../../users/dto/user.dto';
+
+/** 大陆手机号（11 位，1 开头，第二位 3-9） */
+const PHONE_PATTERN = /^1[3-9]\d{9}$/;
+/** 强密码：8-32 位可见 ASCII，且必须同时包含字母和数字 */
+const STRONG_PASSWORD_PATTERN = /^(?=.*[A-Za-z])(?=.*\d)[\x21-\x7e]{8,32}$/;
 
 export class LoginDto {
   @ApiProperty({ description: '账号' })
@@ -16,3 +30,57 @@ export class LoginDto {
 
 /** 注册入参与用户创建一致（角色可选，管理员不开放注册） */
 export class RegisterDto extends CreateUserDto {}
+
+/** 发送手机验证码 */
+export class SendSmsCodeDto {
+  @ApiProperty({ description: '手机号（11 位）', example: '13800138000' })
+  @IsString()
+  @Matches(PHONE_PATTERN, { message: '请输入正确的 11 位手机号' })
+  phone: string;
+}
+
+/** 手机号注册（验证码 + 强密码） */
+export class PhoneRegisterDto {
+  @ApiProperty({ description: '手机号（11 位）', example: '13800138000' })
+  @IsString()
+  @Matches(PHONE_PATTERN, { message: '请输入正确的 11 位手机号' })
+  phone: string;
+
+  @ApiProperty({ description: '6 位短信验证码' })
+  @IsString()
+  @Matches(/^\d{6}$/, { message: '验证码为 6 位数字' })
+  code: string;
+
+  @ApiProperty({ description: '密码：8-32 位，需同时包含字母和数字' })
+  @IsString()
+  @Matches(STRONG_PASSWORD_PATTERN, {
+    message: '密码需 8-32 位，且同时包含字母和数字',
+  })
+  password: string;
+
+  @ApiPropertyOptional({ description: '姓名（可空）' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  name?: string;
+
+  @ApiPropertyOptional({ enum: [UserRole.STUDENT, UserRole.TEACHER, UserRole.PARENT] })
+  @IsOptional()
+  @IsIn([UserRole.STUDENT, UserRole.TEACHER, UserRole.PARENT], {
+    message: '仅支持注册学生、教师或家长账号',
+  })
+  role?: UserRole;
+}
+
+/** 手机号 + 密码登录 */
+export class PhoneLoginDto {
+  @ApiProperty({ description: '手机号（11 位）', example: '13800138000' })
+  @IsString()
+  @Matches(PHONE_PATTERN, { message: '请输入正确的 11 位手机号' })
+  phone: string;
+
+  @ApiProperty({ description: '密码' })
+  @IsString()
+  @MinLength(6)
+  password: string;
+}

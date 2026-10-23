@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { authApi, type AuthUser } from '../api/auth';
+import { authApi, type AuthUser, type PhoneRegisterPayload } from '../api/auth';
 import { clearToken, getToken, setToken } from '../api/http';
 import { ROLE_CONFIG } from '../config/modules';
 import { storage } from '../utils/storage';
@@ -24,14 +24,43 @@ export const useAuthStore = defineStore('auth', {
   },
 
   actions: {
+    /** 写入登录态（账号登录 / 手机号登录 / 注册成功后共用） */
+    applySession(result: { token: string; user: AuthUser }): void {
+      this.token = result.token;
+      this.user = result.user;
+      setToken(result.token);
+      storage.set('user', result.user);
+    },
+
     async login(username: string, password: string): Promise<AuthUser> {
       this.loading = true;
       try {
         const result = await authApi.login(username, password);
-        this.token = result.token;
-        this.user = result.user;
-        setToken(result.token);
-        storage.set('user', result.user);
+        this.applySession(result);
+        return result.user;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    /** 手机号 + 密码登录 */
+    async loginByPhone(phone: string, password: string): Promise<AuthUser> {
+      this.loading = true;
+      try {
+        const result = await authApi.loginByPhone(phone, password);
+        this.applySession(result);
+        return result.user;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    /** 手机号注册（成功后自动登录） */
+    async registerByPhone(payload: PhoneRegisterPayload): Promise<AuthUser> {
+      this.loading = true;
+      try {
+        const result = await authApi.registerByPhone(payload);
+        this.applySession(result);
         return result.user;
       } finally {
         this.loading = false;

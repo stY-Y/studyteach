@@ -25,8 +25,16 @@ export class User {
   @Column({ type: 'varchar', length: 64, nullable: true })
   name: string;
 
+  /** 手机号密文（AES-256-GCM，随机 IV，可解密还原） */
   @Column({ type: 'varchar', length: 255, unique: true, nullable: true })
   phone: string | null;
+
+  /**
+   * 手机号盲索引：HMAC-SHA256(规范化手机号)，不可逆。
+   * 用于「唯一约束 + 精确查找」——加密列带随机 IV 无法做等值查询。
+   */
+  @Column({ name: 'phone_hash', type: 'varchar', length: 64, unique: true, nullable: true })
+  phoneHash: string | null;
 
   @Column({ name: 'school_id', type: 'varchar', length: 64, nullable: true })
   schoolId: string | null;

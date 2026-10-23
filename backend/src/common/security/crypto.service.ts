@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'crypto';
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes } from 'crypto';
 
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 12;
@@ -24,6 +24,8 @@ const SEPARATOR = ':';
 export class CryptoService {
   private readonly logger = new Logger(CryptoService.name);
   private readonly key: Buffer;
+  /** 盲索引专用密钥：由主密钥再派生，避免与加密密钥复用 */
+  private readonly indexKey: Buffer;
 
   constructor() {
     const envKey = process.env.ENCRYPTION_KEY;
@@ -32,10 +34,33 @@ export class CryptoService {
         'ENCRYPTION_KEY 未配置，已使用内置「开发密钥」。生产环境务必配置 ≥32 字节的随机密钥，否则敏感字段加密形同虚设。',
       );
       this.key = createHash('sha256').update('dev-only-encryption-key-qinghe').digest();
+      this.indexKey = createHash('sha256').update('dev-only-encryption-key-qinghe::blind-index').digest();
     } else {
       // 任意长度密钥统一派生为 32 字节，降低配置门槛且避免弱密钥
       this.key = createHash('sha256').update(envKey).digest();
+      this.indexKey = createHash('sha256').update(`${envKey}::blind-index`).digest();
     }
+  }
+
+  /**
+   * 手机号规范化：去除非数字、兼容 +86/86 前缀，返回 11 位大陆手机号或 null。
+   */
+  normalizePhone(phone: string | null | undefined): string | null {
+    if (!phone) return null;
+    const digits = phone.replace(/\D/g, '');
+    const local = digits.length === 13 && digits.startsWith('86') ? digits.slice(2) : digits;
+    return /^1[3-9]\d{9}$/.test(local) ? local : null;
+  }
+
+  /**
+   * 盲索引（Blind Index）：HMAC-SHA256(规范化手机号)。
+   * 用途：加密列使用随机 IV 无法等值查询，用确定性盲索引做「唯一约束 + 精确查找」，
+   * 索引值不可逆、且不含明文。手机号、验证码均可用它做键。
+   */
+  blindIndex(value: string | null | undefined): string | null {
+    if (!value) return null;
+    const normalized = this.normalizePhone(value) ?? value.trim();
+    return createHmac('sha256', this.indexKey).update(normalized).digest('hex');
   }
 
   /** 加密（null/空值原样返回，便于直接落库） */

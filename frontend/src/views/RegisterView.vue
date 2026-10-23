@@ -1,0 +1,358 @@
+<script setup lang="ts">
+import { computed, onUnmounted, ref } from 'vue';
+import { RouterLink, useRouter } from 'vue-router';
+import { UserRole } from '@teachstudy/shared';
+import BrandMark from '../components/BrandMark.vue';
+import { authApi } from '../api/auth';
+import { useAuthStore } from '../stores/auth';
+
+const auth = useAuthStore();
+const router = useRouter();
+
+const phone = ref('');
+const code = ref('');
+const password = ref('');
+const confirm = ref('');
+const name = ref('');
+const role = ref<UserRole>(UserRole.STUDENT);
+const agree = ref(false);
+
+const error = ref('');
+const tip = ref('');
+const devCode = ref('');
+const countdown = ref(0);
+const sending = ref(false);
+let timer: number | null = null;
+
+const PHONE_RE = /^1[3-9]\d{9}$/;
+const PWD_RE = /^(?=.*[A-Za-z])(?=.*\d)[\x21-\x7e]{8,32}$/;
+
+const ROLE_OPTIONS: Array<{ value: UserRole; label: string; icon: string }> = [
+  { value: UserRole.STUDENT, label: '学生', icon: '🎒' },
+  { value: UserRole.PARENT, label: '家长', icon: '👨‍👩‍👧' },
+  { value: UserRole.TEACHER, label: '教师', icon: '📖' },
+];
+
+/** 密码强度提示：不通过规则时才提示，避免一进来就报错 */
+const pwdHint = computed(() => (password.value && !PWD_RE.test(password.value) ? '密码需 8-32 位，且同时包含字母和数字' : ''));
+const confirmHint = computed(() => (confirm.value && confirm.value !== password.value ? '两次输入的密码不一致' : ''));
+
+function clearTimer(): void {
+  if (timer !== null) {
+    clearInterval(timer);
+    timer = null;
+  }
+}
+
+function startCountdown(seconds: number): void {
+  countdown.value = Math.max(1, Math.min(seconds || 60, 120));
+  clearTimer();
+  timer = window.setInterval(() => {
+    countdown.value -= 1;
+    if (countdown.value <= 0) clearTimer();
+  }, 1000);
+}
+
+async function sendCode(): Promise<void> {
+  error.value = '';
+  tip.value = '';
+  if (!PHONE_RE.test(phone.value)) {
+    error.value = '请输入正确的 11 位手机号';
+    return;
+  }
+  sending.value = true;
+  try {
+    const res = await authApi.sendSmsCode(phone.value);
+    devCode.value = res.devCode ?? '';
+    startCountdown(res.cooldownSeconds || 60);
+    tip.value = devCode.value
+      ? '开发模式：验证码已生成，见下方提示（生产环境将通过短信下发）'
+      : '验证码已发送，请查看短信';
+  } catch (err) {
+    error.value = (err as Error).message || '验证码发送失败，请稍后重试';
+  } finally {
+    sending.value = false;
+  }
+}
+
+async function onSubmit(): Promise<void> {
+  error.value = '';
+
+  if (!PHONE_RE.test(phone.value)) {
+    error.value = '请输入正确的 11 位手机号';
+    return;
+  }
+  if (!/^\d{6}$/.test(code.value.trim())) {
+    error.value = '请输入 6 位短信验证码';
+    return;
+  }
+  if (!PWD_RE.test(password.value)) {
+    error.value = '密码需 8-32 位，且同时包含字母和数字';
+    return;
+  }
+  if (password.value !== confirm.value) {
+    error.value = '两次输入的密码不一致';
+    return;
+  }
+  if (!agree.value) {
+    error.value = '请先阅读并同意隐私说明';
+    return;
+  }
+
+  try {
+    await auth.registerByPhone({
+      phone: phone.value,
+      code: code.value.trim(),
+      password: password.value,
+      name: name.value.trim() || undefined,
+      role: role.value,
+    });
+    await router.replace({ name: 'home' });
+  } catch (err) {
+    error.value = (err as Error).message || '注册失败，请稍后重试';
+  }
+}
+
+onUnmounted(clearTimer);
+</script>
+
+<template>
+  <div class="register-page">
+    <div class="register-box">
+      <header class="brand-block">
+        <BrandMark :size="52" class="brand-logo" />
+        <h1 class="brand-title">注册青禾账号</h1>
+        <p class="brand-sub">手机号注册 · 账号数据加密保存 · 纯公益全免费</p>
+      </header>
+
+      <form class="card register-form" @submit.prevent="onSubmit">
+        <div v-if="error" class="alert alert-danger">{{ error }}</div>
+        <div v-if="tip" class="alert alert-info">{{ tip }}</div>
+        <div v-if="devCode" class="alert alert-warning">
+          开发模式验证码：<span class="mono">{{ devCode }}</span>
+        </div>
+
+        <!-- 手机号 -->
+        <div class="field">
+          <label class="field-label" for="reg-phone">手机号</label>
+          <input
+            id="reg-phone"
+            v-model.trim="phone"
+            class="input"
+            type="tel"
+            inputmode="numeric"
+            maxlength="11"
+            autocomplete="tel"
+            placeholder="请输入 11 位手机号"
+          />
+          <p class="text-xs text-faint">手机号仅用于登录与家校联系，加密存储、不对外展示</p>
+        </div>
+
+        <!-- 验证码 -->
+        <div class="field">
+          <label class="field-label" for="reg-code">短信验证码</label>
+          <div class="code-row">
+            <input
+              id="reg-code"
+              v-model.trim="code"
+              class="input"
+              type="text"
+              inputmode="numeric"
+              maxlength="6"
+              autocomplete="one-time-code"
+              placeholder="6 位数字"
+            />
+            <button
+              class="btn code-btn"
+              type="button"
+              :disabled="sending || countdown > 0"
+              @click="sendCode"
+            >
+              {{ countdown > 0 ? `${countdown}s 后重发` : sending ? '发送中…' : '获取验证码' }}
+            </button>
+          </div>
+        </div>
+
+        <!-- 密码 -->
+        <div class="field">
+          <label class="field-label" for="reg-password">设置密码</label>
+          <input
+            id="reg-password"
+            v-model="password"
+            class="input"
+            type="password"
+            autocomplete="new-password"
+            placeholder="8-32 位，需含字母和数字"
+          />
+          <p v-if="pwdHint" class="text-xs text-warn">{{ pwdHint }}</p>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="reg-confirm">确认密码</label>
+          <input
+            id="reg-confirm"
+            v-model="confirm"
+            class="input"
+            type="password"
+            autocomplete="new-password"
+            placeholder="请再次输入密码"
+          />
+          <p v-if="confirmHint" class="text-xs text-warn">{{ confirmHint }}</p>
+        </div>
+
+        <!-- 姓名（可选） -->
+        <div class="field">
+          <label class="field-label" for="reg-name">姓名（可选）</label>
+          <input
+            id="reg-name"
+            v-model.trim="name"
+            class="input"
+            type="text"
+            maxlength="32"
+            autocomplete="name"
+            placeholder="用于老师/家长识别，可稍后在档案里补充"
+          />
+        </div>
+
+        <!-- 身份 -->
+        <div class="field">
+          <span class="field-label">我的身份</span>
+          <div class="role-row">
+            <button
+              v-for="r in ROLE_OPTIONS"
+              :key="r.value"
+              type="button"
+              class="chip role-chip"
+              :class="{ active: role === r.value }"
+              @click="role = r.value"
+            >
+              <span>{{ r.icon }}</span>
+              {{ r.label }}
+            </button>
+          </div>
+          <p class="text-xs text-faint">管理员账号不开放注册，由平台统一分配</p>
+        </div>
+
+        <!-- 隐私同意 -->
+        <label class="agree">
+          <input v-model="agree" type="checkbox" />
+          <span class="text-sm">
+            我已阅读并同意
+            <strong>隐私说明</strong>
+            ：平台仅采集手机号、姓名等必要信息用于账号登录与教学管理；
+            手机号加密存储、列表脱敏展示，不会对外提供或用于商业用途。
+          </span>
+        </label>
+
+        <button class="btn btn-primary btn-block" type="submit" :disabled="auth.loading">
+          {{ auth.loading ? '注册中…' : '注册并登录' }}
+        </button>
+
+        <p class="switch text-sm text-soft">
+          已有账号？<RouterLink :to="{ name: 'login' }" class="link">去登录</RouterLink>
+        </p>
+      </form>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.register-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 28px 16px 48px;
+  background: var(--c-bg);
+}
+
+.register-box {
+  width: 100%;
+  max-width: 460px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.brand-block {
+  text-align: center;
+}
+
+.brand-logo {
+  margin: 0 auto 10px;
+}
+
+.brand-title {
+  font-size: 20px;
+}
+
+.brand-sub {
+  margin-top: 5px;
+  font-size: 13px;
+  color: var(--c-text-soft);
+}
+
+.register-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.code-row {
+  display: flex;
+  gap: 8px;
+}
+
+.code-row .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.code-btn {
+  flex: none;
+  min-width: 108px;
+  white-space: nowrap;
+}
+
+.role-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.role-chip {
+  flex: 1;
+  min-width: 88px;
+  justify-content: center;
+}
+
+.agree {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #f7f1e3;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  line-height: 1.55;
+}
+
+.agree input {
+  margin-top: 3px;
+  flex: none;
+}
+
+.text-warn {
+  color: #b45309;
+}
+
+.switch {
+  text-align: center;
+}
+
+.link {
+  color: var(--c-primary);
+  text-decoration: underline;
+}
+</style>

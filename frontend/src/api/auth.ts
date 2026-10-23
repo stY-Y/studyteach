@@ -23,6 +23,21 @@ export interface RegisterPayload {
   schoolId?: string;
 }
 
+/** 手机验证码发送结果（devCode 仅开发环境返回，便于联调） */
+export interface SendCodeResult {
+  cooldownSeconds: number;
+  devCode: string | null;
+}
+
+/** 手机号注册入参 */
+export interface PhoneRegisterPayload {
+  phone: string;
+  code: string;
+  password: string;
+  name?: string;
+  role?: UserRole;
+}
+
 export interface HealthResult {
   status: string;
   service: string;
@@ -34,6 +49,17 @@ export const authApi = {
     http.post<LoginResult>('/auth/login', { username, password }),
 
   register: (payload: RegisterPayload) => http.post<LoginResult>('/auth/register', payload),
+
+  /** 手机号 + 密码登录 */
+  loginByPhone: (phone: string, password: string) =>
+    http.post<LoginResult>('/auth/login-phone', { phone, password }),
+
+  /** 发送短信验证码（60 秒冷却） */
+  sendSmsCode: (phone: string) => http.post<SendCodeResult>('/auth/sms/send', { phone }),
+
+  /** 手机号注册（验证码 + 强密码） */
+  registerByPhone: (payload: PhoneRegisterPayload) =>
+    http.post<LoginResult>('/auth/register-phone', payload),
 
   me: () => http.get<AuthUser>('/auth/me'),
 

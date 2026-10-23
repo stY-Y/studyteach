@@ -22,6 +22,13 @@ const router = createRouter({
       meta: { public: true, title: '登录' },
     },
     {
+      // 手机号注册（公开页面，注册成功自动登录）
+      path: '/register',
+      name: 'register',
+      component: () => import('../views/RegisterView.vue'),
+      meta: { public: true, title: '注册' },
+    },
+    {
       path: '/',
       component: () => import('../layouts/AppLayout.vue'),
       children: [
@@ -201,8 +208,10 @@ router.beforeEach((to) => {
   const auth = useAuthStore();
 
   if (to.meta.public) {
-    // 已登录用户访问登录页 → 直接进工作台
-    if (to.name === 'login' && auth.isLoggedIn) return { name: 'home' };
+    // 已登录用户访问登录/注册页 → 直接进工作台
+    if ((to.name === 'login' || to.name === 'register') && auth.isLoggedIn) {
+      return { name: 'home' };
+    }
     return true;
   }
 

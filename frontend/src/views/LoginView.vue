@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { UserRole } from '@teachstudy/shared';
 import BrandMark from '../components/BrandMark.vue';
 import { ROLE_CONFIG, ROLE_ENTRANCES } from '../config/modules';
@@ -12,9 +12,19 @@ const route = useRoute();
 
 /** 当前选择的入口（仅作引导；实际进入哪个工作台以账号角色为准） */
 const entrance = ref<UserRole>(UserRole.STUDENT);
+/** 登录方式：账号密码 / 手机号密码 */
+const mode = ref<'account' | 'phone'>('account');
 const username = ref('');
+const phone = ref('');
 const password = ref('');
 const error = ref('');
+
+const PHONE_RE = /^1[3-9]\d{9}$/;
+
+function switchMode(next: 'account' | 'phone'): void {
+  mode.value = next;
+  error.value = '';
+}
 
 /** 演示账号（由后端 npm run seed 播种生成，仅供本地开发体验） */
 const DEMO_ACCOUNTS: Array<{ role: UserRole; username: string; password: string }> = [
@@ -31,6 +41,7 @@ function selectEntrance(role: UserRole): void {
 
 function fillDemo(account: { role: UserRole; username: string; password: string }): void {
   entrance.value = account.role;
+  mode.value = 'account';
   username.value = account.username;
   password.value = account.password;
   error.value = '';
@@ -38,6 +49,27 @@ function fillDemo(account: { role: UserRole; username: string; password: string 
 
 async function onSubmit(): Promise<void> {
   error.value = '';
+
+  if (mode.value === 'phone') {
+    if (!PHONE_RE.test(phone.value)) {
+      error.value = '请输入正确的 11 位手机号';
+      return;
+    }
+    if (!password.value) {
+      error.value = '请输入密码';
+      return;
+    }
+    try {
+      const user = await auth.loginByPhone(phone.value, password.value);
+      entrance.value = user.role;
+      const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : null;
+      await router.replace(redirect ?? { name: 'home' });
+    } catch (err) {
+      error.value = (err as Error).message || '登录失败，请稍后重试';
+    }
+    return;
+  }
+
   const name = username.value.trim();
   if (!name || !password.value) {
     error.value = '请输入账号和密码';
@@ -90,9 +122,29 @@ async function onSubmit(): Promise<void> {
       <form class="card login-form" @submit.prevent="onSubmit">
         <h2 class="form-title">{{ ROLE_CONFIG[entrance].label }}登录</h2>
 
+        <!-- 登录方式切换 -->
+        <div class="mode-tabs">
+          <button
+            type="button"
+            class="mode-tab"
+            :class="{ active: mode === 'account' }"
+            @click="switchMode('account')"
+          >
+            账号登录
+          </button>
+          <button
+            type="button"
+            class="mode-tab"
+            :class="{ active: mode === 'phone' }"
+            @click="switchMode('phone')"
+          >
+            手机号登录
+          </button>
+        </div>
+
         <div v-if="error" class="alert alert-danger">{{ error }}</div>
 
-        <div class="field">
+        <div v-if="mode === 'account'" class="field">
           <label class="field-label" for="username">账号</label>
           <input
             id="username"
@@ -101,6 +153,20 @@ async function onSubmit(): Promise<void> {
             type="text"
             autocomplete="username"
             placeholder="请输入账号"
+          />
+        </div>
+
+        <div v-else class="field">
+          <label class="field-label" for="phone">手机号</label>
+          <input
+            id="phone"
+            v-model.trim="phone"
+            class="input"
+            type="tel"
+            inputmode="numeric"
+            maxlength="11"
+            autocomplete="tel"
+            placeholder="请输入 11 位手机号"
           />
         </div>
 
@@ -121,8 +187,16 @@ async function onSubmit(): Promise<void> {
         </button>
 
         <p class="hint text-xs text-faint">
-          实际进入的工作台以账号角色为准。没有账号？可联系学校管理员创建，或使用下方演示账号体验。<br />
-          管理员创建的账号使用随机初始密码，登录后请尽快到「修改密码」里改掉。
+          <template v-if="mode === 'phone'">
+            手机号登录使用注册时设置的密码；忘记密码可联系学校管理员重置。
+          </template>
+          <template v-else>
+            实际进入的工作台以账号角色为准。管理员创建的账号使用随机初始密码，登录后请尽快到「修改密码」里改掉。
+          </template>
+        </p>
+
+        <p class="register-entry text-sm text-soft">
+          还没有账号？<RouterLink :to="{ name: 'register' }" class="link">手机号注册</RouterLink>
         </p>
       </form>
 
@@ -251,8 +325,45 @@ async function onSubmit(): Promise<void> {
   font-size: 17px;
 }
 
+.mode-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  background: #f2e8d5;
+  border-radius: var(--radius-sm);
+}
+
+.mode-tab {
+  flex: 1;
+  min-height: 36px;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--c-text-soft);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.12s, color 0.12s;
+}
+
+.mode-tab.active {
+  color: var(--c-primary-dark);
+  background: var(--c-surface);
+  font-weight: 600;
+}
+
 .hint {
   line-height: 1.5;
+}
+
+.register-entry {
+  text-align: center;
+  padding-top: 2px;
+}
+
+.link {
+  color: var(--c-primary);
+  text-decoration: underline;
 }
 
 /* ---------- 演示账号 ---------- */

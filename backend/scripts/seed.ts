@@ -362,6 +362,12 @@ async function seedUsers(app: INestApplicationContext): Promise<void> {
     await usersService.linkParent(parent.id, link.studentUsername);
     stats.linkInserted += 1;
   }
+
+  // 历史账号补写手机号盲索引（升级后让老账号也能用手机号登录）
+  const backfilled = await usersService.backfillPhoneHashes();
+  if (backfilled > 0) {
+    console.log(`  已为 ${backfilled} 个历史账号补写手机号盲索引\n`);
+  }
 }
 
 void main().catch((e) => {
