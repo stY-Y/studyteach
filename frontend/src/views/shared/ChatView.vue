@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
-import { RouterLink } from 'vue-router';
+import { RouterLink, useRoute } from 'vue-router';
 import { UserRole } from '@teachstudy/shared';
 import { chatApi, type ChatMessage } from '../../api/chat';
 import { classesApi } from '../../api/classes';
@@ -8,6 +8,7 @@ import HomeworkPanel from '../../components/homework/HomeworkPanel.vue';
 import { useAuthStore } from '../../stores/auth';
 
 const auth = useAuthStore();
+const route = useRoute();
 
 interface ChatClass {
   id: string;
@@ -56,7 +57,10 @@ async function init(): Promise<void> {
       : data.teacher.map((c) => ({ id: c.id, name: c.name }));
 
     if (classes.value.length > 0) {
-      classId.value = classes.value[0].id;
+      // 从「我的班级」点进来时带 classId，直接定位到该班；否则默认第一个班
+      const wanted = typeof route.query.classId === 'string' ? route.query.classId : '';
+      const hit = wanted ? classes.value.find((c) => c.id === wanted) : undefined;
+      classId.value = hit ? hit.id : classes.value[0].id;
       await loadMessages();
     }
   } catch (err) {

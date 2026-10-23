@@ -104,8 +104,17 @@ function stopPoll(): void {
   }
 }
 
-function enterChat(): void {
-  void router.replace({ name: 'chat' });
+/** 进入指定班级的聊天（班级主页：群聊 + 作业） */
+function enterChat(classId?: string): void {
+  void router.push({ name: 'chat', query: classId ? { classId } : undefined });
+}
+
+/** 进入该班的学情查看（按班级预筛选学生） */
+function openReport(item: ClassRoom): void {
+  void router.push({
+    name: 'students',
+    query: { classId: item.id, className: item.className, grade: item.grade },
+  });
 }
 
 async function applyJoin(classId: string): Promise<void> {
@@ -282,7 +291,7 @@ onUnmounted(stopPoll);
             v-if="item.status === 'approved'"
             class="btn btn-sm btn-primary"
             type="button"
-            @click="enterChat"
+            @click="enterChat(item.classRoom.id)"
           >
             进入班级聊天
           </button>
@@ -320,7 +329,7 @@ onUnmounted(stopPoll);
       <section class="card">
         <p class="text-sm text-soft">
           班级由<b>年级管理员</b>统一创建并任命班主任。若你被任命为某班班主任，该班级会自动出现在下方，
-          你可以审核学生入班申请、进入班级聊天与家长沟通。
+          你可以在班级卡片上直接<b>进班级聊天</b>（群聊 + 作业）或<b>查看本班学情</b>，也可审核学生入班申请、与家长沟通。
         </p>
       </section>
 
@@ -340,6 +349,12 @@ onUnmounted(stopPoll);
               </p>
             </div>
             <span v-if="c.pendingCount > 0" class="badge badge-warning">待审 {{ c.pendingCount }}</span>
+            <button class="btn btn-sm btn-primary" type="button" @click="enterChat(c.id)">
+              班级聊天
+            </button>
+            <button class="btn btn-sm" type="button" @click="openReport(c)">
+              学情查看
+            </button>
             <button class="btn btn-sm" type="button" @click="toggleMembers(c.id)">
               {{ expandedId === c.id ? '收起' : '成员与审核' }}
             </button>

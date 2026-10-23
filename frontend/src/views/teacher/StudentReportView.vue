@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { buildNameMap, knowledgeApi } from '../../api/knowledge';
 import { reportsApi, type StudyReportItem } from '../../api/reports';
 import { usersApi, type StudentListItem } from '../../api/users';
@@ -8,6 +8,21 @@ import { subjectLabel } from '../../config/labels';
 import { formatTime } from '../../utils/format';
 
 const router = useRouter();
+const route = useRoute();
+
+/** 从「我的班级」进入时按班级预筛选（className + grade 共同定位） */
+const classNameFilter = computed(() =>
+  typeof route.query.className === 'string' ? route.query.className : '',
+);
+const gradeFilter = computed(() =>
+  typeof route.query.grade === 'string' ? route.query.grade : '',
+);
+const scopedStudents = computed(() => {
+  const cn = classNameFilter.value;
+  const gr = gradeFilter.value;
+  if (!cn) return students.value;
+  return students.value.filter((s) => s.className === cn && (!gr || s.grade === gr));
+});
 
 const students = ref<StudentListItem[]>([]);
 const keyword = ref('');
@@ -22,9 +37,15 @@ const kpNames = ref<Record<string, string>>({});
 
 const visibleStudents = computed(() => {
   const kw = keyword.value.trim();
-  if (!kw) return students.value;
-  return students.value.filter((s) => (s.name || s.username).includes(kw));
+  const base = scopedStudents.value;
+  if (!kw) return base;
+  return base.filter((s) => (s.name || s.username).includes(kw));
 });
+
+/** 清除班级筛选，回到全部学生 */
+function clearClassFilter(): void {
+  void router.replace({ name: 'students' });
+}
 
 const latest = computed<StudyReportItem | null>(() => reports.value[0] ?? null);
 
@@ -96,6 +117,14 @@ onMounted(() => {
       <p class="text-sm text-soft note">
         选择本班学生，查看诊断与练习汇总。数据不排名、不打分，只为及时拉一把需要帮助的孩子。
       </p>
+      <div v-if="classNameFilter" class="row wrap note">
+        <span class="badge badge-primary">
+          当前班级：{{ gradeFilter }} {{ classNameFilter }}
+        </span>
+        <span class="text-xs text-faint">共 {{ scopedStudents.length }} 名学生</span>
+        <div class="spacer" />
+        <button class="btn btn-sm" type="button" @click="clearClassFilter">查看全部学生</button>
+      </div>
     </section>
 
     <div v-if="error" class="alert alert-danger">{{ error }}</div>
@@ -104,7 +133,7 @@ onMounted(() => {
     <!-- 学生列表 -->
     <section class="card">
       <div class="row">
-        <h2 class="section-title">学生（{{ students.length }}）</h2>
+        <h2 class="section-title">学生（{{ scopedStudents.length }}）</h2>
         <div class="spacer" />
         <button class="btn btn-sm" type="button" :disabled="loading" @click="loadStudents">刷新</button>
       </div>
