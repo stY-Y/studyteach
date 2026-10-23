@@ -95,6 +95,16 @@ const router = createRouter({
           meta: { title: '账号与安全' },
         },
         {
+          // 学生/教师/管理员 · 我的班级（教师建班、学生申请、教师审核）
+          path: 'class',
+          name: 'myClass',
+          component: () => import('../views/shared/MyClassView.vue'),
+          meta: {
+            title: '我的班级',
+            roles: [UserRole.STUDENT, UserRole.TEACHER, UserRole.ADMIN],
+          },
+        },
+        {
           // 学生/教师/管理员 · 作业（教师布置，学生作答）
           path: 'homework',
           name: 'homework',

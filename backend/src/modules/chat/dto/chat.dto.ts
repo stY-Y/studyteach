@@ -2,22 +2,12 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsInt, IsNotEmpty, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 
-/** 班级定位：学校 + 年级 + 班级名 */
+/** 班级定位（按班级 id） */
 export class ChatTargetDto {
-  @ApiProperty({ description: '学校 id' })
+  @ApiProperty({ description: '班级 id（需已通过入班审核）' })
   @IsString()
   @IsNotEmpty()
-  schoolId: string;
-
-  @ApiProperty({ description: '年级（规范写法，如 八年级）' })
-  @IsString()
-  @IsNotEmpty()
-  grade: string;
-
-  @ApiProperty({ description: '班级名（如 2 班）' })
-  @IsString()
-  @IsNotEmpty()
-  className: string;
+  classId: string;
 }
 
 export class SendMessageDto extends ChatTargetDto {

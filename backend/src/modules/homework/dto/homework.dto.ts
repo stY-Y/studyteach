@@ -68,20 +68,10 @@ export class HomeworkQuestionDto {
 }
 
 export class CreateHomeworkDto {
-  @ApiProperty({ description: '学校 id' })
+  @ApiProperty({ description: '班级 id（需为该班创建教师）' })
   @IsString()
   @IsNotEmpty()
-  schoolId: string;
-
-  @ApiProperty({ description: '年级（规范写法）' })
-  @IsString()
-  @IsNotEmpty()
-  grade: string;
-
-  @ApiProperty({ description: '班级名' })
-  @IsString()
-  @IsNotEmpty()
-  className: string;
+  classId: string;
 
   @ApiProperty({ description: '作业标题' })
   @IsString()
@@ -107,20 +97,10 @@ export class CreateHomeworkDto {
 }
 
 export class ClassQueryDto {
-  @ApiProperty()
+  @ApiProperty({ description: '班级 id' })
   @IsString()
   @IsNotEmpty()
-  schoolId: string;
-
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  grade: string;
-
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  className: string;
+  classId: string;
 }
 
 export class SubmitHomeworkDto {

@@ -14,21 +14,15 @@ export interface ChatMessage {
 }
 
 export interface ChatTarget {
-  schoolId: string;
-  grade: string;
-  className: string;
+  /** 班级 id（需已通过入班审核） */
+  classId: string;
 }
 
 export const chatApi = {
   /** 拉取本班最近消息（按时间正序） */
   messages: (params: ChatTarget & { limit?: number }) =>
     http.get<ChatMessage[]>('/chat/messages', {
-      query: {
-        schoolId: params.schoolId,
-        grade: params.grade,
-        className: params.className,
-        limit: params.limit,
-      },
+      query: { classId: params.classId, limit: params.limit },
     }),
 
   /** 发送班级消息 */

@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import {
   AbilityRequirement,
   DifficultyLevel,
@@ -15,16 +15,12 @@ import {
   UserRole,
 } from '@teachstudy/shared';
 import { AuthUser } from '../../common/decorators/current-user.decorator';
+import { ClassesService } from '../classes/classes.service';
 import { Question } from '../questions/entities/question.entity';
 import { QuestionsService } from '../questions/questions.service';
-import { UsersService } from '../users/users.service';
 import { Homework, HomeworkQuestion } from './entities/homework.entity';
 import { HomeworkSubmission } from './entities/homework-submission.entity';
-import {
-  ClassQueryDto,
-  CreateHomeworkDto,
-  SubmitHomeworkDto,
-} from './dto/homework.dto';
+import { ClassQueryDto, CreateHomeworkDto, SubmitHomeworkDto } from './dto/homework.dto';
 
 /** 客观题（可自动判分） */
 const AUTO_TYPES: string[] = [
@@ -40,18 +36,17 @@ export class HomeworkService {
     private readonly repo: Repository<Homework>,
     @InjectRepository(HomeworkSubmission)
     private readonly submissions: Repository<HomeworkSubmission>,
-    private readonly users: UsersService,
+    private readonly classes: ClassesService,
     private readonly questions: QuestionsService,
   ) {}
 
   /**
-   * 布置作业。
+   * 布置作业：仅班级创建教师（或管理员）。
    * 题目两种来源：① 选题库已有题（questionId）；② 教师自行上传（写入题库，持续扩充题量）。
    */
   async create(actor: AuthUser, dto: CreateHomeworkDto): Promise<Homework> {
-    if (actor.role === UserRole.TEACHER && (!actor.schoolId || actor.schoolId !== dto.schoolId)) {
-      throw new ForbiddenException('只能给本校班级布置作业');
-    }
+    const room = await this.classes.getClassOrThrow(dto.classId);
+    await this.classes.assertManager(actor, room);
 
     const resolved: HomeworkQuestion[] = [];
 
@@ -89,50 +84,42 @@ export class HomeworkService {
       throw new BadRequestException('请至少选择或上传一道题');
     }
 
-    const homework = this.repo.create({
-      teacherId: actor.id,
-      teacherName: actor.name ?? actor.username,
-      schoolId: dto.schoolId,
-      grade: dto.grade,
-      className: dto.className,
-      title: dto.title.trim(),
-      description: dto.description?.trim() || null,
-      dueAt: dto.dueAt ? new Date(dto.dueAt) : null,
-      status: 'open',
-      questions: resolved,
-      totalQuestions: resolved.length,
-    });
-    return this.repo.save(homework);
+    return this.repo.save(
+      this.repo.create({
+        classId: room.id,
+        teacherId: actor.id,
+        teacherName: actor.name ?? actor.username,
+        schoolId: room.schoolId,
+        grade: room.grade,
+        className: room.className,
+        title: dto.title.trim(),
+        description: dto.description?.trim() || null,
+        dueAt: dto.dueAt ? new Date(dto.dueAt) : null,
+        status: 'open',
+        questions: resolved,
+        totalQuestions: resolved.length,
+      }),
+    );
   }
 
-  /** 教师/管理员：查看指定班级作业 */
-  listForClass(actor: AuthUser, query: ClassQueryDto): Promise<Homework[]> {
-    if (actor.role === UserRole.TEACHER && actor.schoolId && actor.schoolId !== query.schoolId) {
-      throw new ForbiddenException('仅可查看本校班级作业');
-    }
+  /** 教师：查看自己班级的作业 */
+  async listForClass(actor: AuthUser, query: ClassQueryDto): Promise<Homework[]> {
+    const room = await this.classes.getClassOrThrow(query.classId);
+    await this.classes.assertManager(actor, room);
+
     return this.repo.find({
-      where: {
-        schoolId: query.schoolId,
-        grade: query.grade,
-        className: query.className,
-      },
+      where: { classId: room.id },
       order: { createdAt: 'DESC' },
     });
   }
 
-  /** 学生：本班作业 + 我的提交状态（不含答案） */
+  /** 学生：已加入班级的作业 + 我的提交状态（不含答案） */
   async listMine(actor: AuthUser) {
-    const profile = await this.users.getStudentProfile(actor.id);
-    if (!profile || !profile.schoolId || !profile.grade || !profile.className) {
-      throw new BadRequestException('请先在「我的档案」补全学校、年级与班级');
-    }
+    const classIds = await this.classes.getApprovedClassIds(actor.id);
+    if (classIds.length === 0) return [];
 
     const list = await this.repo.find({
-      where: {
-        schoolId: profile.schoolId,
-        grade: profile.grade,
-        className: profile.className,
-      },
+      where: { classId: In(classIds) },
       order: { createdAt: 'DESC' },
     });
 
@@ -150,11 +137,14 @@ export class HomeworkService {
     });
   }
 
-  /** 作业详情：学生版本剥离答案与解析，防止提前看到答案 */
+  /** 作业详情：学生版本剥离答案与解析 */
   async detail(actor: AuthUser, id: string) {
     const homework = await this.findOne(id);
+
     if (actor.role === UserRole.STUDENT) {
-      await this.assertStudentOfClass(actor, homework);
+      const ok = await this.classes.isApprovedMember(actor.id, homework.classId);
+      if (!ok) throw new ForbiddenException('你尚未加入该班级，无法查看作业');
+
       const submission = await this.submissions.findOne({
         where: { homeworkId: id, studentId: actor.id },
       });
@@ -165,13 +155,19 @@ export class HomeworkService {
           : null,
       };
     }
+
+    if (actor.role === UserRole.TEACHER) {
+      const ok = await this.classes.canManage(actor, homework.classId);
+      if (!ok) throw new ForbiddenException('只有该班创建教师可以查看作业');
+    }
     return homework;
   }
 
-  /** 学生提交（重复提交覆盖），客观题自动判分 */
+  /** 学生提交（需已通过入班审核；重复提交覆盖），客观题自动判分 */
   async submit(actor: AuthUser, id: string, dto: SubmitHomeworkDto) {
     const homework = await this.findOne(id);
-    await this.assertStudentOfClass(actor, homework);
+    const ok = await this.classes.isApprovedMember(actor.id, homework.classId);
+    if (!ok) throw new ForbiddenException('你尚未加入该班级，无法提交作业');
     if (homework.status !== 'open') {
       throw new BadRequestException('作业已截止，无法提交');
     }
@@ -202,9 +198,9 @@ export class HomeworkService {
   /** 教师：查看某次作业的提交情况 */
   async submissionsOf(actor: AuthUser, id: string) {
     const homework = await this.findOne(id);
-    if (actor.role !== UserRole.ADMIN && homework.teacherId !== actor.id) {
-      throw new ForbiddenException('只能查看自己布置的作业提交');
-    }
+    const ok = await this.classes.canManage(actor, homework.classId);
+    if (!ok) throw new ForbiddenException('只有该班创建教师可以查看提交');
+
     const rows = await this.submissions.find({
       where: { homeworkId: id },
       order: { submittedAt: 'DESC' },
@@ -215,9 +211,9 @@ export class HomeworkService {
   /** 教师：截止作业 */
   async close(actor: AuthUser, id: string): Promise<Homework> {
     const homework = await this.findOne(id);
-    if (actor.role !== UserRole.ADMIN && homework.teacherId !== actor.id) {
-      throw new ForbiddenException('只能关闭自己布置的作业');
-    }
+    const ok = await this.classes.canManage(actor, homework.classId);
+    if (!ok) throw new ForbiddenException('只有该班创建教师可以关闭作业');
+
     homework.status = 'closed';
     return this.repo.save(homework);
   }
@@ -257,18 +253,6 @@ export class HomeworkService {
         return rest;
       }),
     };
-  }
-
-  private async assertStudentOfClass(actor: AuthUser, homework: Homework): Promise<void> {
-    const profile = await this.users.getStudentProfile(actor.id);
-    if (
-      !profile ||
-      profile.schoolId !== homework.schoolId ||
-      profile.grade !== homework.grade ||
-      profile.className !== homework.className
-    ) {
-      throw new ForbiddenException('仅本班学生可查看该作业');
-    }
   }
 
   /** 客观题自动判分（0-100）；无客观题返回 null */

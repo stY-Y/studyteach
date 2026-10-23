@@ -1,58 +1,283 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
+import { randomBytes } from 'crypto';
+import { UserRole } from '@teachstudy/shared';
+import { AuthUser } from '../../common/decorators/current-user.decorator';
 import { StudentProfile } from '../users/entities/student-profile.entity';
+import { User } from '../users/entities/user.entity';
+import { ClassRoom } from './entities/class-room.entity';
+import { ClassMember } from './entities/class-member.entity';
+import { CreateClassDto } from './dto/class.dto';
 
-/** 班级摘要：以「学校 + 年级 + 班级名」三元组标识一个班 */
-export interface ClassSummary {
-  schoolId: string;
-  grade: string;
-  className: string;
-  studentCount: number;
+/** 带统计的班级（教师视图） */
+export type ClassWithCounts = ClassRoom & { memberCount: number; pendingCount: number };
+
+/** 学生视角的班级 + 我的申请状态 */
+export interface StudentClassItem {
+  classRoom: ClassRoom;
+  status: string;
+  memberId: string;
+  appliedAt: Date;
 }
 
 @Injectable()
 export class ClassesService {
   constructor(
+    @InjectRepository(ClassRoom)
+    private readonly rooms: Repository<ClassRoom>,
+    @InjectRepository(ClassMember)
+    private readonly memberRepo: Repository<ClassMember>,
     @InjectRepository(StudentProfile)
     private readonly profiles: Repository<StudentProfile>,
+    @InjectRepository(User)
+    private readonly users: Repository<User>,
   ) {}
 
-  /**
-   * 班级列表：从学生档案聚合而来（无需单独维护班级表）。
-   * 供注册选班、教师布置作业、班级聊天选班使用。
-   */
-  async list(schoolId?: string): Promise<ClassSummary[]> {
-    const qb = this.profiles
-      .createQueryBuilder('p')
-      .select('p.schoolId', 'schoolId')
-      .addSelect('p.grade', 'grade')
-      .addSelect('p.className', 'className')
-      .addSelect('COUNT(*)', 'studentCount')
-      .where('p.schoolId IS NOT NULL')
-      .andWhere('p.grade IS NOT NULL')
-      .andWhere('p.className IS NOT NULL')
-      .andWhere("p.className <> ''")
-      .groupBy('p.schoolId')
-      .addGroupBy('p.grade')
-      .addGroupBy('p.className')
-      .orderBy('p.grade', 'ASC')
-      .addOrderBy('p.className', 'ASC');
+  // ---------- 教师：创建与管理 ----------
 
-    if (schoolId) qb.andWhere('p.schoolId = :schoolId', { schoolId });
+  /** 教师创建班级（自动生成邀请码）；教师只能为本校建班 */
+  async create(actor: AuthUser, dto: CreateClassDto): Promise<ClassRoom> {
+    if (actor.role === UserRole.TEACHER && (!actor.schoolId || actor.schoolId !== dto.schoolId)) {
+      throw new ForbiddenException('只能为本校创建班级');
+    }
 
-    const rows = await qb.getRawMany<{
-      schoolId: string;
-      grade: string;
-      className: string;
-      studentCount: string | number;
-    }>();
+    const room = this.rooms.create({
+      schoolId: dto.schoolId,
+      grade: dto.grade.trim(),
+      className: dto.className.trim(),
+      name: dto.name?.trim() || `${dto.grade.trim()} ${dto.className.trim()}`,
+      teacherId: actor.id,
+      teacherName: actor.name ?? actor.username,
+      inviteCode: await this.generateInviteCode(),
+      status: 'active',
+    });
+    return this.rooms.save(room);
+  }
 
-    return rows.map((r) => ({
-      schoolId: r.schoolId,
-      grade: r.grade,
-      className: r.className,
-      studentCount: Number(r.studentCount),
-    }));
+  /** 我创建的班级（教师/管理员），附已通过人数与待审人数 */
+  async listManaged(actor: AuthUser): Promise<ClassWithCounts[]> {
+    const rooms =
+      actor.role === UserRole.ADMIN
+        ? await this.rooms.find({ order: { createdAt: 'DESC' } })
+        : await this.rooms.find({ where: { teacherId: actor.id }, order: { createdAt: 'DESC' } });
+
+    return Promise.all(
+      rooms.map(async (room) => ({
+        ...room,
+        memberCount: await this.memberRepo.count({ where: { classId: room.id, status: 'approved' } }),
+        pendingCount: await this.memberRepo.count({ where: { classId: room.id, status: 'pending' } }),
+      })),
+    );
+  }
+
+  /** 班级成员与申请列表（仅班级创建者/管理员） */
+  async members(actor: AuthUser, classId: string) {
+    const room = await this.getClassOrThrow(classId);
+    await this.assertManager(actor, room);
+
+    const list = await this.memberRepo.find({
+      where: { classId },
+      order: { createdAt: 'ASC' },
+    });
+    return { classRoom: room, members: list };
+  }
+
+  /** 审核申请：通过后把学生档案绑定到该班，学生才能使用聊天与作业 */
+  async review(
+    actor: AuthUser,
+    classId: string,
+    memberId: string,
+    status: 'approved' | 'rejected',
+  ) {
+    const room = await this.getClassOrThrow(classId);
+    await this.assertManager(actor, room);
+
+    const member = await this.memberRepo.findOne({ where: { id: memberId, classId } });
+    if (!member) throw new NotFoundException('申请记录不存在');
+
+    member.status = status;
+    member.reviewedAt = new Date();
+    const saved = await this.memberRepo.save(member);
+
+    if (status === 'approved') {
+      await this.bindStudentProfile(member.studentId, room);
+    }
+    return saved;
+  }
+
+  /** 移除成员 / 学生主动退出 */
+  async removeMember(actor: AuthUser, classId: string, studentId: string): Promise<{ removed: true }> {
+    const room = await this.getClassOrThrow(classId);
+    const isSelf = actor.id === studentId && actor.role === UserRole.STUDENT;
+    if (!isSelf) await this.assertManager(actor, room);
+
+    const member = await this.memberRepo.findOne({ where: { classId, studentId } });
+    if (member) await this.memberRepo.remove(member);
+
+    const profile = await this.profiles.findOne({ where: { userId: studentId } });
+    if (profile && profile.classId === classId) {
+      await this.profiles.update(profile.id, { classId: null });
+    }
+    return { removed: true };
+  }
+
+  // ---------- 学生：申请与查询 ----------
+
+  /** 学生：我已加入/申请中的班级 */
+  async listMine(actor: AuthUser): Promise<StudentClassItem[]> {
+    const rows = await this.memberRepo.find({
+      where: { studentId: actor.id },
+      order: { createdAt: 'DESC' },
+    });
+    if (rows.length === 0) return [];
+
+    const rooms = await this.rooms.findBy({ id: In(rows.map((r) => r.classId)) });
+    const roomById = new Map(rooms.map((r) => [r.id, r]));
+
+    return rows
+      .map((m) => {
+        const room = roomById.get(m.classId);
+        if (!room) return null;
+        return {
+          classRoom: room,
+          status: m.status,
+          memberId: m.id,
+          appliedAt: m.createdAt,
+        } satisfies StudentClassItem;
+      })
+      .filter((x): x is StudentClassItem => x !== null);
+  }
+
+  /** 学生：可申请的班级（同校同年级，排除已申请过的） */
+  async listAvailable(actor: AuthUser): Promise<ClassRoom[]> {
+    const profile = await this.profiles.findOne({ where: { userId: actor.id } });
+    if (!profile || !profile.schoolId || !profile.grade) {
+      throw new BadRequestException('请先在「账号与安全」补全学校与年级');
+    }
+
+    const applied = await this.memberRepo.find({ where: { studentId: actor.id } });
+    const appliedIds = new Set(applied.map((m) => m.classId));
+
+    const rooms = await this.rooms.find({
+      where: {
+        schoolId: profile.schoolId,
+        grade: profile.grade,
+        status: 'active',
+      },
+      order: { createdAt: 'DESC' },
+    });
+    return rooms.filter((r) => !appliedIds.has(r.id));
+  }
+
+  /** 学生申请加入班级 */
+  async join(actor: AuthUser, classId: string): Promise<ClassMember> {
+    if (actor.role !== UserRole.STUDENT) {
+      throw new ForbiddenException('仅学生可以申请加入班级');
+    }
+    const room = await this.getClassOrThrow(classId);
+    if (room.status !== 'active') throw new BadRequestException('该班级已停止接收申请');
+
+    const existing = await this.memberRepo.findOne({
+      where: { classId, studentId: actor.id },
+    });
+    if (existing) {
+      if (existing.status === 'approved') throw new ConflictException('你已加入该班级');
+      if (existing.status === 'pending') throw new ConflictException('申请审核中，请耐心等待');
+      // 曾被拒绝：允许重新申请
+      existing.status = 'pending';
+      existing.reviewedAt = null;
+      return this.memberRepo.save(existing);
+    }
+
+    return this.memberRepo.save(
+      this.memberRepo.create({
+        classId,
+        studentId: actor.id,
+        studentName: actor.name ?? actor.username,
+        status: 'pending',
+      }),
+    );
+  }
+
+  /** 学生凭邀请码申请 */
+  async joinByCode(actor: AuthUser, inviteCode: string): Promise<ClassMember> {
+    const room = await this.rooms.findOne({
+      where: { inviteCode: inviteCode.trim().toUpperCase(), status: 'active' },
+    });
+    if (!room) throw new NotFoundException('邀请码无效或班级已停用');
+    return this.join(actor, room.id);
+  }
+
+  // ---------- 供聊天/作业复用的权限判断 ----------
+
+  async getClassOrThrow(classId: string): Promise<ClassRoom> {
+    const room = await this.rooms.findOne({ where: { id: classId } });
+    if (!room) throw new NotFoundException('班级不存在');
+    return room;
+  }
+
+  /** 学生是否为该班审核通过的成员 */
+  async isApprovedMember(studentId: string, classId: string): Promise<boolean> {
+    const member = await this.memberRepo.findOne({ where: { classId, studentId } });
+    return member?.status === 'approved';
+  }
+
+  /** 学生已加入（审核通过）的全部班级 id */
+  async getApprovedClassIds(studentId: string): Promise<string[]> {
+    const rows = await this.memberRepo.find({ where: { studentId, status: 'approved' } });
+    return rows.map((r) => r.classId);
+  }
+
+  /** 是否可管理该班（班级创建者或管理员） */
+  async canManage(actor: AuthUser, classId: string): Promise<boolean> {
+    if (actor.role === UserRole.ADMIN) return true;
+    if (actor.role !== UserRole.TEACHER) return false;
+    const room = await this.rooms.findOne({ where: { id: classId } });
+    return Boolean(room && room.teacherId === actor.id);
+  }
+
+  async assertManager(actor: AuthUser, room: ClassRoom): Promise<void> {
+    const ok = await this.canManage(actor, room.id);
+    if (!ok) throw new ForbiddenException('只有班级创建教师可以管理该班级');
+  }
+
+  /** 审核通过后把学生档案绑定到班级（学校/年级/班级名同步，兼容旧逻辑） */
+  private async bindStudentProfile(studentId: string, room: ClassRoom): Promise<void> {
+    const profile = await this.profiles.findOne({ where: { userId: studentId } });
+    if (profile) {
+      await this.profiles.update(profile.id, {
+        classId: room.id,
+        schoolId: room.schoolId,
+        grade: room.grade,
+        className: room.className,
+      });
+      return;
+    }
+    await this.profiles.save(
+      this.profiles.create({
+        userId: studentId,
+        classId: room.id,
+        schoolId: room.schoolId,
+        grade: room.grade,
+        className: room.className,
+      }),
+    );
+  }
+
+  private async generateInviteCode(): Promise<string> {
+    for (let i = 0; i < 10; i += 1) {
+      // 8 位大写十六进制，易读易输入
+      const code = randomBytes(4).toString('hex').toUpperCase();
+      const exists = await this.rooms.findOne({ where: { inviteCode: code } });
+      if (!exists) return code;
+    }
+    throw new ConflictException('邀请码生成失败，请重试');
   }
 }

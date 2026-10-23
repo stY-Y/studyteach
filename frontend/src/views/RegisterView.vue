@@ -19,11 +19,10 @@ const name = ref('');
 const role = ref<UserRole>(UserRole.STUDENT);
 const agree = ref(false);
 
-/** 学生注册必填：学校 / 年级 / 班级（班级聊天与作业都依赖） */
+/** 学生注册必填：学校 / 年级（班级改为注册后申请加入，需老师审核） */
 const schools = ref<SchoolItem[]>([]);
 const schoolId = ref('');
 const grade = ref('');
-const className = ref('');
 const GRADES = Array.from({ length: 12 }, (_, i) => gradeLabel(i + 1));
 
 const error = ref('');
@@ -112,10 +111,6 @@ async function onSubmit(): Promise<void> {
       error.value = '请选择年级';
       return;
     }
-    if (!className.value.trim()) {
-      error.value = '请填写班级，如「2 班」';
-      return;
-    }
   }
 
   if (!agree.value) {
@@ -132,7 +127,6 @@ async function onSubmit(): Promise<void> {
       role: role.value,
       schoolId: role.value === UserRole.STUDENT ? schoolId.value : undefined,
       grade: role.value === UserRole.STUDENT ? grade.value : undefined,
-      className: role.value === UserRole.STUDENT ? className.value.trim() : undefined,
     });
     await router.replace({ name: 'home' });
   } catch (err) {
@@ -279,27 +273,16 @@ onUnmounted(clearTimer);
               </option>
             </select>
           </div>
-          <div class="field-row">
-            <div class="field">
-              <label class="field-label" for="reg-grade">年级</label>
-              <select id="reg-grade" v-model="grade" class="input">
-                <option value="">请选择</option>
-                <option v-for="g in GRADES" :key="g" :value="g">{{ g }}</option>
-              </select>
-            </div>
-            <div class="field">
-              <label class="field-label" for="reg-class">班级</label>
-              <input
-                id="reg-class"
-                v-model.trim="className"
-                class="input"
-                type="text"
-                maxlength="32"
-                placeholder="如 2 班"
-              />
-            </div>
+          <div class="field">
+            <label class="field-label" for="reg-grade">年级</label>
+            <select id="reg-grade" v-model="grade" class="input">
+              <option value="">请选择</option>
+              <option v-for="g in GRADES" :key="g" :value="g">{{ g }}</option>
+            </select>
           </div>
-          <p class="text-xs text-faint">绑定学校与班级后，才能收到本班作业和班级消息</p>
+          <p class="text-xs text-faint">
+            注册后请在「我的班级」申请加入班级，老师审核通过后即可使用班级聊天与作业
+          </p>
         </div>
 
         <!-- 隐私同意 -->

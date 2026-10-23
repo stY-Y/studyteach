@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 import { QuestionType, UserRole } from '@teachstudy/shared';
-import { classesApi, type ClassSummary } from '../../api/classes';
+import { classesApi, type ClassWithCounts } from '../../api/classes';
 import {
   homeworkApi,
   type Homework,
@@ -33,7 +33,7 @@ const multi = ref<Record<string, string[]>>({});
 const submitting = ref(false);
 
 // ---------- 教师 ----------
-const classes = ref<ClassSummary[]>([]);
+const classes = ref<ClassWithCounts[]>([]);
 const selectedClass = ref('');
 const classHomework = ref<Homework[]>([]);
 const showForm = ref(false);
@@ -52,13 +52,9 @@ const custom = reactive({
 const creating = ref(false);
 const viewing = ref<{ homework: Homework; submissions: HomeworkSubmission[] } | null>(null);
 
-const currentClass = computed(() =>
-  classes.value.find((c) => keyOf(c) === selectedClass.value) ?? null,
+const currentClass = computed(
+  () => classes.value.find((c) => c.id === selectedClass.value) ?? null,
 );
-
-function keyOf(c: ClassSummary): string {
-  return `${c.schoolId}::${c.grade}::${c.className}`;
-}
 
 function formatDate(value?: string | null): string {
   if (!value) return '不限';
@@ -132,10 +128,10 @@ async function loadClasses(): Promise<void> {
   loading.value = true;
   error.value = '';
   try {
-    const sid = auth.user?.schoolId ?? '';
-    classes.value = await classesApi.list(sid || undefined);
+    const data = await classesApi.mine();
+    classes.value = data.teacher;
     if (classes.value.length > 0) {
-      selectedClass.value = keyOf(classes.value[0]);
+      selectedClass.value = classes.value[0].id;
       await loadClassHomework();
     }
   } catch (err) {
@@ -149,11 +145,7 @@ async function loadClassHomework(): Promise<void> {
   const c = currentClass.value;
   if (!c) return;
   try {
-    classHomework.value = await homeworkApi.list({
-      schoolId: c.schoolId,
-      grade: c.grade,
-      className: c.className,
-    });
+    classHomework.value = await homeworkApi.list({ classId: c.id });
   } catch (err) {
     error.value = (err as Error).message;
   }
@@ -254,9 +246,7 @@ async function publish(): Promise<void> {
   creating.value = true;
   try {
     await homeworkApi.create({
-      schoolId: c.schoolId,
-      grade: c.grade,
-      className: c.className,
+      classId: c.id,
       title: form.title.trim(),
       description: form.description.trim() || undefined,
       dueAt: form.dueAt ? new Date(form.dueAt).toISOString() : undefined,
@@ -414,13 +404,13 @@ onMounted(() => {
           <label class="field-label" for="hw-class">班级</label>
           <select id="hw-class" v-model="selectedClass" class="input" @change="onSwitchClass">
             <option value="" disabled>请选择班级</option>
-            <option v-for="c in classes" :key="keyOf(c)" :value="keyOf(c)">
-              {{ c.grade }} {{ c.className }}（{{ c.studentCount }} 人）
-            </option>
-          </select>
+          <option v-for="c in classes" :key="c.id" :value="c.id">
+            {{ c.name }}（已加入 {{ c.memberCount }} 人）
+          </option>
+        </select>
         </div>
         <p v-if="classes.length === 0" class="text-sm text-faint">
-          暂无班级：学生补全学校与班级后会自动出现。
+          你还没有创建班级，请先到「我的班级」创建并等待学生申请。
         </p>
         <button v-if="currentClass" class="btn btn-primary self-start" type="button" @click="showForm = !showForm">
           {{ showForm ? '收起布置表单' : '布置新作业' }}
@@ -429,7 +419,7 @@ onMounted(() => {
 
       <!-- 布置表单 -->
       <section v-if="showForm && currentClass" class="card stack">
-        <h2 class="section-title">布置作业 · {{ currentClass.grade }} {{ currentClass.className }}</h2>
+        <h2 class="section-title">布置作业 · {{ currentClass.name }}</h2>
 
         <div class="field">
           <label class="field-label" for="hw-title">作业标题</label>

@@ -26,6 +26,9 @@ import { College } from '../src/modules/volunteer/entities/college.entity';
 import { EnrollmentPolicy } from '../src/modules/enrollment/entities/enrollment-policy.entity';
 import { Resource } from '../src/modules/resources/entities/resource.entity';
 import { School } from '../src/modules/schools/entities/school.entity';
+import { ClassRoom } from '../src/modules/classes/entities/class-room.entity';
+import { ClassMember } from '../src/modules/classes/entities/class-member.entity';
+import { StudentProfile } from '../src/modules/users/entities/student-profile.entity';
 import { StorageService } from '../src/infra/storage/storage.service';
 import { ResourceStatus } from '@teachstudy/shared';
 
@@ -104,6 +107,7 @@ async function main(): Promise<void> {
     await seedColleges(ds);
     await seedEnrollment(ds);
     await seedUsers(app);
+    await seedDemoClass(ds, app);
     await seedResources(ds, app);
   } finally {
     await app.close();
@@ -367,6 +371,62 @@ async function seedUsers(app: INestApplicationContext): Promise<void> {
   const backfilled = await usersService.backfillPhoneHashes();
   if (backfilled > 0) {
     console.log(`  已为 ${backfilled} 个历史账号补写手机号盲索引\n`);
+  }
+}
+
+/**
+ * 演示班级：teacher 创建「八年级 2 班」，student 已审核通过并绑定档案。
+ * 新流程下学生必须加入班级才能使用聊天与作业，种子保证演示开箱可用。
+ */
+async function seedDemoClass(ds: DataSource, app: INestApplicationContext): Promise<void> {
+  const usersService = app.get(UsersService);
+  const teacher = await usersService.findByUsername('teacher');
+  const student = await usersService.findByUsername('student');
+  if (!teacher || !student) return;
+
+  const rooms = ds.getRepository(ClassRoom);
+  let room = await rooms.findOne({ where: { teacherId: teacher.id } });
+  if (!room) {
+    room = await rooms.save(
+      rooms.create({
+        schoolId: SEED_SCHOOL_ID,
+        grade: '八年级',
+        className: '2 班',
+        name: '八年级 2 班',
+        teacherId: teacher.id,
+        teacherName: teacher.name,
+        inviteCode: 'QINGHE01',
+        status: 'active',
+      }),
+    );
+    console.log('  已创建演示班级：八年级 2 班（邀请码 QINGHE01）\n');
+  }
+
+  const members = ds.getRepository(ClassMember);
+  const exists = await members.findOne({
+    where: { classId: room.id, studentId: student.id },
+  });
+  if (!exists) {
+    await members.save(
+      members.create({
+        classId: room.id,
+        studentId: student.id,
+        studentName: student.name,
+        status: 'approved',
+        reviewedAt: new Date(),
+      }),
+    );
+  }
+
+  const profiles = ds.getRepository(StudentProfile);
+  const profile = await profiles.findOne({ where: { userId: student.id } });
+  if (profile) {
+    await profiles.update(profile.id, {
+      classId: room.id,
+      schoolId: room.schoolId,
+      grade: room.grade,
+      className: room.className,
+    });
   }
 }
 

@@ -10,7 +10,7 @@ export class ChatController {
   constructor(private readonly chatService: ChatService) {}
 
   @Get('messages')
-  @ApiOperation({ summary: '拉取本班最近消息（学生限本班，教师限本校）' })
+  @ApiOperation({ summary: '拉取本班最近消息（需已通过入班审核）' })
   list(@CurrentUser() user: AuthUser, @Query() query: QueryMessagesDto) {
     return this.chatService.list(user, query);
   }

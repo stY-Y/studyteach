@@ -28,6 +28,10 @@ export class Homework {
   @Column({ name: 'teacher_name', type: 'varchar', length: 64, nullable: true })
   teacherName: string | null;
 
+  /** 所属班级 id（由班级创建教师布置） */
+  @Column({ name: 'class_id', type: 'varchar', length: 64 })
+  classId: string;
+
   @Column({ name: 'school_id', type: 'varchar', length: 64 })
   schoolId: string;
 

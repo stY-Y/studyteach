@@ -12,6 +12,10 @@ export class StudentProfile {
   @Column({ name: 'school_id', type: 'varchar', length: 64, nullable: true })
   schoolId: string;
 
+  /** 所属班级 id（由班级申请审核通过后写入，是使用班级聊天/作业的前提） */
+  @Column({ name: 'class_id', type: 'varchar', length: 64, nullable: true })
+  classId: string | null;
+
   @Column({ type: 'varchar', length: 32, nullable: true })
   grade: string;
 

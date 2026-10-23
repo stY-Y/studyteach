@@ -10,7 +10,11 @@ export class ChatMessage {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  /** 房间键：schoolId::grade::className */
+  /** 所属班级 id（使用班级聊天必须已通过入班审核） */
+  @Column({ name: 'class_id', type: 'varchar', length: 64 })
+  classId: string;
+
+  /** 房间键（等于 classId，保留兼容） */
   @Column({ name: 'classroom_key', type: 'varchar', length: 160 })
   classroomKey: string;
 

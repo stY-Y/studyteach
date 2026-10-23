@@ -56,9 +56,8 @@ export interface HomeworkQuestionInput {
 }
 
 export interface CreateHomeworkBody {
-  schoolId: string;
-  grade: string;
-  className: string;
+  /** 班级 id（需为该班创建教师） */
+  classId: string;
   title: string;
   description?: string;
   dueAt?: string;
@@ -73,8 +72,8 @@ export const homeworkApi = {
   mine: () => http.get<Homework[]>('/homework/mine'),
 
   /** 教师/管理员：按班级查看作业 */
-  list: (params: { schoolId: string; grade: string; className: string }) =>
-    http.get<Homework[]>('/homework', { query: params }),
+  list: (params: { classId: string }) =>
+    http.get<Homework[]>('/homework', { query: { classId: params.classId } }),
 
   /** 作业详情 */
   detail: (id: string) => http.get<Homework>(`/homework/${id}`),

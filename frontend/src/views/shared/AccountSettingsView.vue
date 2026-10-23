@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { RouterLink, useRouter } from 'vue-router';
 import { UserRole } from '@teachstudy/shared';
 import { authApi } from '../../api/auth';
 import { schoolsApi, type SchoolItem } from '../../api/schools';
@@ -31,11 +31,10 @@ const sending = ref(false);
 const changing = ref(false);
 let timer: number | null = null;
 
-/** 学生：学校 / 年级 / 班级 */
+/** 学生：学校 / 年级（班级通过「我的班级」申请加入） */
 const schools = ref<SchoolItem[]>([]);
 const schoolId = ref('');
 const grade = ref('');
-const className = ref('');
 const savingClass = ref(false);
 const GRADES = Array.from({ length: 12 }, (_, i) => gradeLabel(i + 1));
 
@@ -80,7 +79,6 @@ async function load(): Promise<void> {
     if (profile) {
       schoolId.value = profile.schoolId ?? '';
       grade.value = profile.grade ?? '';
-      className.value = profile.className ?? '';
     } else if (data.schoolId) {
       schoolId.value = data.schoolId;
     }
@@ -164,8 +162,8 @@ async function changePhone(): Promise<void> {
 async function saveClass(): Promise<void> {
   error.value = '';
   tip.value = '';
-  if (!schoolId.value || !grade.value || !className.value.trim()) {
-    error.value = '请完整选择学校、年级并填写班级';
+  if (!schoolId.value || !grade.value) {
+    error.value = '请选择学校与年级';
     return;
   }
   savingClass.value = true;
@@ -173,7 +171,6 @@ async function saveClass(): Promise<void> {
     await usersApi.saveStudentProfile({
       schoolId: schoolId.value,
       grade: grade.value,
-      className: className.value.trim(),
     });
     const fresh = await usersApi.me();
     me.value = fresh;
@@ -278,9 +275,9 @@ onUnmounted(clearTimer);
         </button>
       </section>
 
-      <!-- 学生：学校班级 -->
+      <!-- 学生：学校与年级 -->
       <section v-if="isStudent" class="card stack">
-        <h2 class="section-title">学校与班级</h2>
+        <h2 class="section-title">学校与年级</h2>
         <div class="field">
           <label class="field-label" for="set-school">学校</label>
           <select id="set-school" v-model="schoolId" class="input">
@@ -288,22 +285,20 @@ onUnmounted(clearTimer);
             <option v-for="s in schools" :key="s.id" :value="s.id">{{ s.name }}</option>
           </select>
         </div>
-        <div class="field-row">
-          <div class="field">
-            <label class="field-label" for="set-grade">年级</label>
-            <select id="set-grade" v-model="grade" class="input">
-              <option value="">请选择</option>
-              <option v-for="g in GRADES" :key="g" :value="g">{{ g }}</option>
-            </select>
-          </div>
-          <div class="field">
-            <label class="field-label" for="set-class">班级</label>
-            <input id="set-class" v-model.trim="className" class="input" type="text" maxlength="32" placeholder="如 2 班" />
-          </div>
+        <div class="field">
+          <label class="field-label" for="set-grade">年级</label>
+          <select id="set-grade" v-model="grade" class="input">
+            <option value="">请选择</option>
+            <option v-for="g in GRADES" :key="g" :value="g">{{ g }}</option>
+          </select>
         </div>
         <button class="btn btn-primary self-start" type="button" :disabled="savingClass" @click="saveClass">
-          {{ savingClass ? '保存中…' : '保存学校班级' }}
+          {{ savingClass ? '保存中…' : '保存学校与年级' }}
         </button>
+        <p class="text-xs text-faint">
+          班级由老师创建，需要到「我的班级」申请加入并通过老师审核，才能使用班级聊天与作业。
+          <RouterLink :to="{ name: 'myClass' }" class="link">去我的班级</RouterLink>
+        </p>
       </section>
 
       <!-- 注销 -->

@@ -75,9 +75,9 @@ export class AuthService {
     if (exists) throw new ConflictException('该手机号已注册，请直接登录');
 
     const role = dto.role ?? UserRole.STUDENT;
-    // 学生注册必须绑定学校、年级、班级（班级聊天与作业都依赖这三项）
-    if (role === UserRole.STUDENT && (!dto.schoolId || !dto.grade || !dto.className)) {
-      throw new BadRequestException('学生注册需选择学校、年级与班级');
+    // 学生注册需绑定学校与年级；班级改为注册后「申请加入」（教师建班、教师审核）
+    if (role === UserRole.STUDENT && (!dto.schoolId || !dto.grade)) {
+      throw new BadRequestException('学生注册需选择学校与年级');
     }
 
     const user = await this.usersService.createByPhone({
@@ -91,7 +91,6 @@ export class AuthService {
       await this.usersService.saveStudentProfile(user.id, {
         schoolId: dto.schoolId,
         grade: dto.grade,
-        className: dto.className,
       });
     }
 
