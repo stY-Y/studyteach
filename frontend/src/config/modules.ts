@@ -55,6 +55,7 @@ export const ROLE_CONFIG: Record<UserRole, RoleConfig> = {
       { key: 'studentReport', name: '学情查看', icon: '👀', desc: '查看本班学生学情报表：诊断次数、薄弱点与掌握度', api: 'GET /reports/student/:id', path: '/students', ready: true },
       { key: 'classes', name: '我的班级', icon: '🏫', desc: '创建班级、审核学生入班申请、管理班级成员', api: 'POST /classes', path: '/class', ready: true },
       { key: 'chat', name: '班级聊天', icon: '💬', desc: '班级群聊内发布作业、查看提交与答疑（仅本班创建教师可见）', api: 'GET /chat/messages', path: '/chat', ready: true },
+      { key: 'parentChat', name: '家长沟通', icon: '👨‍👩‍👧', desc: '查看并回复本班家长的留言（仅本班创建教师可见）', api: 'GET /parent-chat/threads', path: '/parent-chat', ready: true },
       { key: 'settings', name: '账号与安全', icon: '⚙️', desc: '修改姓名、换绑手机号，或注销账号', api: 'PATCH /auth/phone', path: '/settings', ready: true },
     ],
   },
@@ -78,10 +79,11 @@ export const ROLE_CONFIG: Record<UserRole, RoleConfig> = {
     label: '家长端',
     tagline: '远程了解孩子学习情况',
     modules: [
-      { key: 'progress', name: '孩子学情', icon: '👦', desc: '实时查看已绑定学生的学习进度与薄弱点', api: 'GET /school-home/children-progress', path: '/children', ready: true },
-      { key: 'link', name: '绑定学生', icon: '🔗', desc: '输入孩子的账号完成绑定，外出务工也能随时关注', api: 'POST /users/parent/link', path: '/link', ready: true },
-      { key: 'reports', name: '学情报表', icon: '📈', desc: '查看孩子的极简版学情报表', api: 'GET /reports/student/:id', path: '/children', ready: true },
-      { key: 'settings', name: '账号与安全', icon: '⚙️', desc: '修改姓名、换绑手机号，或注销账号', api: 'PATCH /auth/phone', path: '/settings', ready: true },
+      { key: 'progress', name: '孩子学情', icon: '👦', desc: '查看孩子最近的诊断、练习与薄弱点', api: 'GET /school-home/children-progress', path: '/children', ready: true },
+      { key: 'reports', name: '学情报表', icon: '📈', desc: '按学科查看孩子的极简学情报表', api: 'GET /reports/student/:id', path: '/children?tab=report', ready: true },
+      { key: 'parentChat', name: '与老师沟通', icon: '💬', desc: '直接和孩子的班主任沟通，仅你与老师可见', api: 'GET /parent-chat/threads', path: '/parent-chat', ready: true },
+      { key: 'link', name: '绑定学生', icon: '🔗', desc: '输入孩子账号完成绑定（最多 3 名），外出务工也能随时关注', api: 'POST /users/parent/link', path: '/link', ready: true },
+      { key: 'settings', name: '账号与安全', icon: '⚙️', desc: '修改密码、换绑手机号，或注销账号', api: 'PATCH /auth/phone', path: '/settings', ready: true },
     ],
   },
 };

@@ -287,10 +287,10 @@ export class UsersService {
 
   // ---------- 家校绑定 ----------
   async linkParent(parentUserId: string, studentUsername: string): Promise<ParentStudentLink> {
-    // 一个手机号（家长账号）最多绑定 2 名学生，防止一号多用
+    // 一个手机号（家长账号）最多绑定 3 名学生，防止一号多用
     const bound = await this.links.count({ where: { parentUserId, status: 'approved' } });
-    if (bound >= 2) {
-      throw new BadRequestException('一个手机号最多绑定 2 名学生');
+    if (bound >= 3) {
+      throw new BadRequestException('一个手机号最多绑定 3 名学生');
     }
 
     const student = await this.findByUsername(studentUsername);

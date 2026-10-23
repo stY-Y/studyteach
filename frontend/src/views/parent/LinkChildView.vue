@@ -65,6 +65,7 @@ onMounted(load);
         输入孩子的平台账号，完成后就能随时看到孩子的诊断和练习情况 ——
         在外打工，也能陪着孩子一起长大 🧡
       </p>
+      <p class="text-xs text-faint note">一个手机号最多绑定 3 名学生。</p>
     </section>
 
     <section class="card">

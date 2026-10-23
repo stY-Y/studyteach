@@ -1,12 +1,16 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { computed, onMounted, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { buildNameMap, knowledgeApi } from '../../api/knowledge';
 import { reportsApi, type StudyReportItem } from '../../api/reports';
 import { schoolHomeApi, type ChildProgress } from '../../api/schoolhome';
 import { subjectLabel } from '../../config/labels';
 
 const router = useRouter();
+const route = useRoute();
+
+/** 学情 / 报表 两个标签页（工作台两个入口分别带 tab=report） */
+const activeTab = ref<'study' | 'report'>(route.query.tab === 'report' ? 'report' : 'study');
 
 const children = ref<ChildProgress[]>([]);
 const loading = ref(false);
@@ -78,6 +82,22 @@ async function toggleReports(c: ChildProgress): Promise<void> {
   }
 }
 
+/** 报表标签页：为每个孩子加载报表（已加载的跳过） */
+async function loadAllReports(): Promise<void> {
+  for (const c of children.value) {
+    const id = c.student?.id;
+    if (!id || childReports.value[id]) continue;
+    reportsLoading.value[id] = true;
+    try {
+      childReports.value[id] = await reportsApi.student(id);
+    } catch {
+      childReports.value[id] = [];
+    } finally {
+      reportsLoading.value[id] = false;
+    }
+  }
+}
+
 async function load(): Promise<void> {
   loading.value = true;
   error.value = '';
@@ -104,21 +124,52 @@ function goHome(): void {
   void router.push({ name: 'home' });
 }
 
-onMounted(() => {
-  void load();
+watch(activeTab, (value) => {
+  if (value === 'report') void loadAllReports();
+});
+
+watch(
+  () => route.query.tab,
+  (value) => {
+    activeTab.value = value === 'report' ? 'report' : 'study';
+  },
+);
+
+onMounted(async () => {
   void loadNameMap();
+  await load();
+  if (activeTab.value === 'report') await loadAllReports();
 });
 </script>
 
 <template>
   <div class="stack">
-    <!-- 温馨引导 -->
+    <!-- 温馨引导 + 标签页 -->
     <section class="card">
-      <h1 class="page-title">孩子学情</h1>
+      <h1 class="page-title">{{ activeTab === 'report' ? '学情报表' : '孩子学情' }}</h1>
       <p class="text-sm text-soft note">
-        孩子的每一点进步，都值得被看见。这里能看到孩子最近的诊断与练习情况 ——
-        不用懂复杂的分数，看懂「薄弱点」就够了 🧡
+        {{ activeTab === 'report'
+          ? '按学科查看孩子的极简学情报表：诊断次数、薄弱点与练习量，一目了然。'
+          : '孩子的每一点进步，都值得被看见。这里能看到孩子最近的诊断与练习情况 —— 不用懂复杂的分数，看懂「薄弱点」就够了 🧡' }}
       </p>
+      <div class="tabs">
+        <button
+          type="button"
+          class="tab"
+          :class="{ active: activeTab === 'study' }"
+          @click="activeTab = 'study'"
+        >
+          孩子学情
+        </button>
+        <button
+          type="button"
+          class="tab"
+          :class="{ active: activeTab === 'report' }"
+          @click="activeTab = 'report'"
+        >
+          学情报表
+        </button>
+      </div>
     </section>
 
     <div v-if="error" class="alert alert-danger">{{ error }}</div>
@@ -133,6 +184,39 @@ onMounted(() => {
         就能随时看到孩子的学习情况了。
       </div>
     </div>
+
+    <!-- 学情报表标签页 -->
+    <template v-else-if="activeTab === 'report'">
+      <section v-for="c in children" :key="c.student?.id ?? childName(c)" class="card">
+        <div class="row wrap">
+          <span class="child-avatar">{{ childName(c).slice(0, 1) }}</span>
+          <div class="child-head">
+            <h2 class="child-name">{{ childName(c) }}</h2>
+            <p class="text-xs text-faint">
+              {{ (c.student?.id && childReports[c.student.id]?.length) || 0 }} 份报表
+            </p>
+          </div>
+          <div class="spacer" />
+          <span class="badge badge-primary">诊断 {{ c.diagnosisCount }} 次</span>
+          <span class="badge badge-primary">练习 {{ c.gradingCount }} 次</span>
+        </div>
+
+        <p v-if="c.student?.id && reportsLoading[c.student.id]" class="text-sm text-soft note">
+          报表加载中…
+        </p>
+        <ul v-else-if="c.student?.id && childReports[c.student.id]?.length" class="report-list note">
+          <li v-for="r in childReports[c.student.id]" :key="r.id" class="report-item">
+            <span class="badge badge-primary">{{ subjectLabel(r.subject) }}</span>
+            <span class="text-xs text-faint">{{ formatTime(r.createdAt) }}</span>
+            <div class="spacer" />
+            <span class="text-xs text-soft">{{ r.metrics?.weakPointCount ?? 0 }} 个薄弱点</span>
+          </li>
+        </ul>
+        <p v-else class="text-sm text-soft note">
+          还没有报表。孩子做完诊断或练习后，可以在「我的学情」里生成。
+        </p>
+      </section>
+    </template>
 
     <!-- 孩子卡片 -->
     <template v-else>
@@ -236,6 +320,34 @@ onMounted(() => {
 .note {
   margin-top: 8px;
   line-height: 1.55;
+}
+
+.tabs {
+  display: flex;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 4px;
+  background: #f2e8d5;
+  border-radius: var(--radius-sm);
+  width: fit-content;
+}
+
+.tab {
+  min-height: 34px;
+  padding: 0 16px;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--c-text-soft);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.tab.active {
+  color: var(--c-primary-dark);
+  background: var(--c-surface);
+  font-weight: 600;
 }
 
 .wrap {

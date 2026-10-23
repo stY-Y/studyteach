@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import { UserRole } from '@teachstudy/shared';
 import { systemApi, type HealthResult } from '../api/auth';
+import { usersApi } from '../api/users';
 import ModuleCard from '../components/ModuleCard.vue';
 import { ROLE_CONFIG } from '../config/modules';
 import { useAuthStore } from '../stores/auth';
@@ -9,6 +11,20 @@ import { isOnline, offline } from '../utils/offline';
 const auth = useAuthStore();
 
 const roleConfig = computed(() => (auth.user ? ROLE_CONFIG[auth.user.role] : null));
+
+/** 家长已绑定的孩子数量：未绑定时隐藏学情/报表/沟通入口 */
+const childCount = ref<number | null>(null);
+
+const modules = computed(() => {
+  const list = roleConfig.value?.modules ?? [];
+  if (auth.user?.role === UserRole.PARENT) {
+    // 未绑定（或还在加载）时只保留「绑定学生」与「账号与安全」
+    if ((childCount.value ?? 0) === 0) {
+      return list.filter((m) => m.key === 'link' || m.key === 'settings');
+    }
+  }
+  return list;
+});
 
 /** 按时段问候，让工作台更有「家」的温度 */
 const greeting = computed(() => {
@@ -48,7 +64,16 @@ function clearCache(): void {
   cacheTip.value = removed > 0 ? `已清理 ${removed} 条离线缓存` : '当前没有离线缓存';
 }
 
-onMounted(checkHealth);
+onMounted(async () => {
+  void checkHealth();
+  if (auth.user?.role === UserRole.PARENT) {
+    try {
+      childCount.value = (await usersApi.children()).length;
+    } catch {
+      childCount.value = 0;
+    }
+  }
+});
 </script>
 
 <template>
@@ -96,8 +121,13 @@ onMounted(checkHealth);
     <!-- 功能入口 -->
     <section>
       <h2 class="section-title">功能入口</h2>
+
+      <p v-if="auth.user?.role === UserRole.PARENT && (childCount ?? 0) === 0" class="alert alert-info">
+        还没有绑定孩子。绑定成功后，才会出现「孩子学情」「学情报表」「与老师沟通」。
+      </p>
+
       <div v-if="roleConfig" class="grid grid-gap">
-        <ModuleCard v-for="m in roleConfig.modules" :key="m.key" :module="m" />
+        <ModuleCard v-for="m in modules" :key="m.key" :module="m" />
       </div>
     </section>
 

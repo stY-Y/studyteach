@@ -113,6 +113,16 @@ const router = createRouter({
           },
         },
         {
+          // 家长/教师 · 家长与教师沟通（家长限自己孩子班级，教师限本班）
+          path: 'parent-chat',
+          name: 'parentChat',
+          component: () => import('../views/shared/ParentChatView.vue'),
+          meta: {
+            title: '与老师沟通',
+            roles: [UserRole.PARENT, UserRole.TEACHER, UserRole.ADMIN],
+          },
+        },
+        {
           // 学生/教师/管理员 · 班级聊天（仅本班可见）
           path: 'chat',
           name: 'chat',

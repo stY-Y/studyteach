@@ -33,6 +33,7 @@ import { EnrollmentModule } from './modules/enrollment/enrollment.module';
 import { ClassesModule } from './modules/classes/classes.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { HomeworkModule } from './modules/homework/homework.module';
+import { ParentChatModule } from './modules/parent-chat/parent-chat.module';
 
 @Module({
   imports: [
@@ -92,6 +93,7 @@ import { HomeworkModule } from './modules/homework/homework.module';
     ClassesModule,
     ChatModule,
     HomeworkModule,
+    ParentChatModule,
   ],
   controllers: [AppController],
   providers: [
