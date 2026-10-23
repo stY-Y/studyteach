@@ -38,6 +38,9 @@ export const ROLE_CONFIG: Record<UserRole, RoleConfig> = {
       { key: 'colleges', name: '院校库', icon: '🏫', desc: '按年份查看院校、专业、最低位次与报考限制', api: 'GET /volunteer/colleges', path: '/colleges', ready: true },
       { key: 'resources', name: '学习资源', icon: '📚', desc: '小学 1-6 / 初中 7-9 / 高中 10-12，按年级+学科筛选，全部免费下载', api: 'GET /resources', path: '/resources', ready: true },
       { key: 'offline', name: '离线缓存', icon: '📥', desc: '管理已下载资源，无网也能看，可随时删除释放空间', api: 'GET /resources/offline/manifest', path: '/offline', ready: true },
+      { key: 'homework', name: '我的作业', icon: '📝', desc: '查看本班老师布置的作业，在线作答，客观题自动判分', api: 'GET /homework/mine', path: '/homework', ready: true },
+      { key: 'chat', name: '班级聊天', icon: '💬', desc: '仅本班同学与老师可见的班级群聊，不支持私聊', api: 'GET /chat/messages', path: '/chat', ready: true },
+      { key: 'settings', name: '账号与安全', icon: '⚙️', desc: '修改姓名、换绑手机号、调整学校班级，或注销账号', api: 'PATCH /auth/phone', path: '/settings', ready: true },
     ],
   },
   [UserRole.TEACHER]: {
@@ -52,6 +55,9 @@ export const ROLE_CONFIG: Record<UserRole, RoleConfig> = {
       { key: 'mine', name: '我的资源', icon: '📁', desc: '管理本校上传资源，可修改开放范围或下架', api: 'GET /resources/mine', path: '/resources/mine', ready: true },
       { key: 'knowledge', name: '知识图谱', icon: '🌳', desc: '查看全学段知识点树，维护知识点结构', api: 'GET /knowledge/tree', path: '/knowledge', ready: true },
       { key: 'studentReport', name: '学情查看', icon: '👀', desc: '查看本班学生学情报表：诊断次数、薄弱点与掌握度', api: 'GET /reports/student/:id', path: '/students', ready: true },
+      { key: 'homework', name: '布置作业', icon: '📝', desc: '按班级布置作业，可从题库选题或自行上传题目', api: 'POST /homework', path: '/homework', ready: true },
+      { key: 'chat', name: '班级聊天', icon: '💬', desc: '进入本班群聊，为学生答疑（仅本校教师可见）', api: 'GET /chat/messages', path: '/chat', ready: true },
+      { key: 'settings', name: '账号与安全', icon: '⚙️', desc: '修改姓名、换绑手机号，或注销账号', api: 'PATCH /auth/phone', path: '/settings', ready: true },
     ],
   },
   [UserRole.ADMIN]: {
@@ -65,6 +71,8 @@ export const ROLE_CONFIG: Record<UserRole, RoleConfig> = {
       { key: 'knowledge', name: '知识图谱维护', icon: '🌳', desc: '新增/调整知识点，支撑全平台精准诊断', api: 'POST /knowledge', path: '/knowledge', ready: true },
       { key: 'enrollment', name: '升学数据', icon: '📊', desc: '每年同步官方招生政策、投档分数线与选科要求', api: 'POST /enrollment', path: '/enrollment', ready: true },
       { key: 'resources', name: '资源总览', icon: '📚', desc: '查看全平台共享资源与下载热度', api: 'GET /resources', path: '/resources', ready: true },
+      { key: 'chat', name: '班级聊天', icon: '💬', desc: '查看各班级群聊情况，便于管理与维护', api: 'GET /chat/messages', path: '/chat', ready: true },
+      { key: 'settings', name: '账号与安全', icon: '⚙️', desc: '修改姓名、换绑手机号，或注销账号', api: 'PATCH /auth/phone', path: '/settings', ready: true },
     ],
   },
   [UserRole.PARENT]: {
@@ -76,6 +84,7 @@ export const ROLE_CONFIG: Record<UserRole, RoleConfig> = {
       { key: 'password', name: '修改密码', icon: '🔐', desc: '初始密码为随机生成，首次登录请尽快修改', api: 'PATCH /users/me/password', path: '/password', ready: true },
       { key: 'link', name: '绑定学生', icon: '🔗', desc: '输入孩子的账号完成绑定，外出务工也能随时关注', api: 'POST /users/parent/link', path: '/link', ready: true },
       { key: 'reports', name: '学情报表', icon: '📈', desc: '查看孩子的极简版学情报表', api: 'GET /reports/student/:id', path: '/children', ready: true },
+      { key: 'settings', name: '账号与安全', icon: '⚙️', desc: '修改姓名、换绑手机号，或注销账号', api: 'PATCH /auth/phone', path: '/settings', ready: true },
     ],
   },
 };

@@ -153,6 +153,7 @@ export const http = {
     request<T>(path, { ...options, method: 'PATCH', body }),
   put: <T>(path: string, body?: unknown, options?: Omit<RequestOptions, 'method' | 'body'>) =>
     request<T>(path, { ...options, method: 'PUT', body }),
-  del: <T>(path: string, options?: Omit<RequestOptions, 'method' | 'body'>) =>
-    request<T>(path, { ...options, method: 'DELETE' }),
+  /** DELETE 支持可选 body（如注销账号需二次确认密码） */
+  del: <T>(path: string, body?: unknown, options?: Omit<RequestOptions, 'method' | 'body'>) =>
+    request<T>(path, { ...options, method: 'DELETE', body }),
 };

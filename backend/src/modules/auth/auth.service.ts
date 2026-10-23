@@ -1,8 +1,19 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UserRole } from '@teachstudy/shared';
 import { UsersService } from '../users/users.service';
-import { LoginDto, PhoneLoginDto, PhoneRegisterDto, RegisterDto } from './dto/auth.dto';
+import {
+  ChangePhoneDto,
+  LoginDto,
+  PhoneLoginDto,
+  PhoneRegisterDto,
+  RegisterDto,
+} from './dto/auth.dto';
 import { SmsCodeService } from './sms-code.service';
 
 @Injectable()
@@ -63,15 +74,35 @@ export class AuthService {
     const exists = await this.usersService.findByPhone(dto.phone);
     if (exists) throw new ConflictException('该手机号已注册，请直接登录');
 
+    const role = dto.role ?? UserRole.STUDENT;
+    // 学生注册必须绑定学校、年级、班级（班级聊天与作业都依赖这三项）
+    if (role === UserRole.STUDENT && (!dto.schoolId || !dto.grade || !dto.className)) {
+      throw new BadRequestException('学生注册需选择学校、年级与班级');
+    }
+
     const user = await this.usersService.createByPhone({
       phone: dto.phone,
       password: dto.password,
       name: dto.name,
-      role: dto.role ?? UserRole.STUDENT,
+      role,
     });
+
+    if (role === UserRole.STUDENT) {
+      await this.usersService.saveStudentProfile(user.id, {
+        schoolId: dto.schoolId,
+        grade: dto.grade,
+        className: dto.className,
+      });
+    }
 
     const payload = this.buildPayload(user);
     return { token: await this.jwtService.signAsync(payload), user: payload };
+  }
+
+  /** 换绑手机号：先验证新手机号验证码，再更新（校验新号未被占用） */
+  async changePhone(userId: string, dto: ChangePhoneDto) {
+    this.smsCode.verify(dto.phone, dto.code);
+    return this.usersService.changePhone(userId, dto.phone);
   }
 
   /** 手机号 + 密码登录（统一错误信息，不泄露手机号是否已注册） */

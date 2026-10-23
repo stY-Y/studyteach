@@ -1,0 +1,37 @@
+import { http } from './http';
+
+export interface ChatMessage {
+  id: string;
+  classroomKey: string;
+  schoolId: string;
+  grade: string;
+  className: string;
+  senderId: string;
+  senderName?: string | null;
+  senderRole: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface ChatTarget {
+  schoolId: string;
+  grade: string;
+  className: string;
+}
+
+export const chatApi = {
+  /** 拉取本班最近消息（按时间正序） */
+  messages: (params: ChatTarget & { limit?: number }) =>
+    http.get<ChatMessage[]>('/chat/messages', {
+      query: {
+        schoolId: params.schoolId,
+        grade: params.grade,
+        className: params.className,
+        limit: params.limit,
+      },
+    }),
+
+  /** 发送班级消息 */
+  send: (body: ChatTarget & { content: string }) =>
+    http.post<ChatMessage>('/chat/messages', body),
+};

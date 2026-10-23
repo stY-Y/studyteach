@@ -36,6 +36,10 @@ export interface PhoneRegisterPayload {
   password: string;
   name?: string;
   role?: UserRole;
+  /** 学生注册必填：学校 / 年级 / 班级 */
+  schoolId?: string;
+  grade?: string;
+  className?: string;
 }
 
 export interface HealthResult {
@@ -60,6 +64,10 @@ export const authApi = {
   /** 手机号注册（验证码 + 强密码） */
   registerByPhone: (payload: PhoneRegisterPayload) =>
     http.post<LoginResult>('/auth/register-phone', payload),
+
+  /** 换绑手机号（新手机号验证码校验） */
+  changePhone: (phone: string, code: string) =>
+    http.patch<{ updated: true }>('/auth/phone', { phone, code }),
 
   me: () => http.get<AuthUser>('/auth/me'),
 

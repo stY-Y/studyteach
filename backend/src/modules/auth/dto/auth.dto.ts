@@ -70,6 +70,34 @@ export class PhoneRegisterDto {
     message: '仅支持注册学生、教师或家长账号',
   })
   role?: UserRole;
+
+  @ApiPropertyOptional({ description: '学校 id（学生必填，来自 GET /schools）' })
+  @IsOptional()
+  @IsString()
+  schoolId?: string;
+
+  @ApiPropertyOptional({ description: '年级（学生必填，规范写法如 八年级）' })
+  @IsOptional()
+  @IsString()
+  grade?: string;
+
+  @ApiPropertyOptional({ description: '班级名（学生必填，如 2 班）' })
+  @IsOptional()
+  @IsString()
+  className?: string;
+}
+
+/** 换绑手机号（需新手机号验证码） */
+export class ChangePhoneDto {
+  @ApiProperty({ description: '新手机号（11 位）', example: '13800138000' })
+  @IsString()
+  @Matches(PHONE_PATTERN, { message: '请输入正确的 11 位手机号' })
+  phone: string;
+
+  @ApiProperty({ description: '新手机号收到的 6 位验证码' })
+  @IsString()
+  @Matches(/^\d{6}$/, { message: '验证码为 6 位数字' })
+  code: string;
 }
 
 /** 手机号 + 密码登录 */

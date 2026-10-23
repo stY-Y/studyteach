@@ -30,6 +30,9 @@ import { VolunteerModule } from './modules/volunteer/volunteer.module';
 import { SchoolHomeModule } from './modules/school-home/school-home.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { EnrollmentModule } from './modules/enrollment/enrollment.module';
+import { ClassesModule } from './modules/classes/classes.module';
+import { ChatModule } from './modules/chat/chat.module';
+import { HomeworkModule } from './modules/homework/homework.module';
 
 @Module({
   imports: [
@@ -86,6 +89,9 @@ import { EnrollmentModule } from './modules/enrollment/enrollment.module';
     SchoolHomeModule,
     ReportsModule,
     EnrollmentModule,
+    ClassesModule,
+    ChatModule,
+    HomeworkModule,
   ],
   controllers: [AppController],
   providers: [

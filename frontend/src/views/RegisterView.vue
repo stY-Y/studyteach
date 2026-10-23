@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed, onUnmounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
 import { UserRole } from '@teachstudy/shared';
 import BrandMark from '../components/BrandMark.vue';
 import { authApi } from '../api/auth';
+import { schoolsApi, type SchoolItem } from '../api/schools';
+import { gradeLabel } from '../config/labels';
 import { useAuthStore } from '../stores/auth';
 
 const auth = useAuthStore();
@@ -16,6 +18,13 @@ const confirm = ref('');
 const name = ref('');
 const role = ref<UserRole>(UserRole.STUDENT);
 const agree = ref(false);
+
+/** 学生注册必填：学校 / 年级 / 班级（班级聊天与作业都依赖） */
+const schools = ref<SchoolItem[]>([]);
+const schoolId = ref('');
+const grade = ref('');
+const className = ref('');
+const GRADES = Array.from({ length: 12 }, (_, i) => gradeLabel(i + 1));
 
 const error = ref('');
 const tip = ref('');
@@ -94,6 +103,21 @@ async function onSubmit(): Promise<void> {
     error.value = '两次输入的密码不一致';
     return;
   }
+  if (role.value === UserRole.STUDENT) {
+    if (!schoolId.value) {
+      error.value = '请选择学校';
+      return;
+    }
+    if (!grade.value) {
+      error.value = '请选择年级';
+      return;
+    }
+    if (!className.value.trim()) {
+      error.value = '请填写班级，如「2 班」';
+      return;
+    }
+  }
+
   if (!agree.value) {
     error.value = '请先阅读并同意隐私说明';
     return;
@@ -106,12 +130,23 @@ async function onSubmit(): Promise<void> {
       password: password.value,
       name: name.value.trim() || undefined,
       role: role.value,
+      schoolId: role.value === UserRole.STUDENT ? schoolId.value : undefined,
+      grade: role.value === UserRole.STUDENT ? grade.value : undefined,
+      className: role.value === UserRole.STUDENT ? className.value.trim() : undefined,
     });
     await router.replace({ name: 'home' });
   } catch (err) {
     error.value = (err as Error).message || '注册失败，请稍后重试';
   }
 }
+
+onMounted(async () => {
+  try {
+    schools.value = await schoolsApi.list();
+  } catch {
+    /* 学校列表拉取失败不阻塞注册，学生可稍后在设置里补 */
+  }
+});
 
 onUnmounted(clearTimer);
 </script>
@@ -233,6 +268,40 @@ onUnmounted(clearTimer);
           <p class="text-xs text-faint">管理员账号不开放注册，由平台统一分配</p>
         </div>
 
+        <!-- 学生必填：学校 / 年级 / 班级 -->
+        <div v-if="role === UserRole.STUDENT" class="class-block">
+          <div class="field">
+            <label class="field-label" for="reg-school">学校</label>
+            <select id="reg-school" v-model="schoolId" class="input">
+              <option value="">请选择学校</option>
+              <option v-for="s in schools" :key="s.id" :value="s.id">
+                {{ s.name }}<template v-if="s.region">（{{ s.region }}）</template>
+              </option>
+            </select>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label class="field-label" for="reg-grade">年级</label>
+              <select id="reg-grade" v-model="grade" class="input">
+                <option value="">请选择</option>
+                <option v-for="g in GRADES" :key="g" :value="g">{{ g }}</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="field-label" for="reg-class">班级</label>
+              <input
+                id="reg-class"
+                v-model.trim="className"
+                class="input"
+                type="text"
+                maxlength="32"
+                placeholder="如 2 班"
+              />
+            </div>
+          </div>
+          <p class="text-xs text-faint">绑定学校与班级后，才能收到本班作业和班级消息</p>
+        </div>
+
         <!-- 隐私同意 -->
         <label class="agree">
           <input v-model="agree" type="checkbox" />
@@ -296,6 +365,26 @@ onUnmounted(clearTimer);
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+.class-block {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  background: #f7f1e3;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+}
+
+.field-row {
+  display: flex;
+  gap: 10px;
+}
+
+.field-row .field {
+  flex: 1;
+  min-width: 0;
 }
 
 .code-row {

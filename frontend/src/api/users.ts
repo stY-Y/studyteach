@@ -17,6 +17,8 @@ export interface MeResult {
   username: string;
   role: UserRole;
   name?: string;
+  /** 本人手机号（明文，仅本人可见） */
+  phone?: string | null;
   schoolId?: string;
   studentProfile?: StudentProfile | null;
   teacherProfile?: unknown;
@@ -86,6 +88,12 @@ export const usersApi = {
   /** 修改本人密码（需提供原密码） */
   changePassword: (body: { oldPassword: string; newPassword: string }) =>
     http.patch<{ updated: true }>('/users/me/password', body),
+
+  /** 修改姓名（手机号换绑走 authApi.changePhone，需验证码） */
+  updateMe: (body: { name?: string }) => http.patch<MeResult>('/users/me', body),
+
+  /** 注销账号（密码二次确认，级联删除个人数据，不可恢复） */
+  deleteAccount: (password: string) => http.del<{ deleted: true }>('/users/me', { password }),
 
   /** 教师/管理员：可见学生列表（教师限本校） */
   students: () => http.get<StudentListItem[]>('/users/students', { cache: true }),

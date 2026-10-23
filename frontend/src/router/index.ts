@@ -88,6 +88,33 @@ const router = createRouter({
           meta: { title: '修改密码' },
         },
         {
+          // 四端共用 · 账号与安全（姓名/手机号换绑、学校班级、注销）
+          path: 'settings',
+          name: 'settings',
+          component: () => import('../views/shared/AccountSettingsView.vue'),
+          meta: { title: '账号与安全' },
+        },
+        {
+          // 学生/教师/管理员 · 作业（教师布置，学生作答）
+          path: 'homework',
+          name: 'homework',
+          component: () => import('../views/shared/HomeworkView.vue'),
+          meta: {
+            title: '作业',
+            roles: [UserRole.STUDENT, UserRole.TEACHER, UserRole.ADMIN],
+          },
+        },
+        {
+          // 学生/教师/管理员 · 班级聊天（仅本班可见）
+          path: 'chat',
+          name: 'chat',
+          component: () => import('../views/shared/ChatView.vue'),
+          meta: {
+            title: '班级聊天',
+            roles: [UserRole.STUDENT, UserRole.TEACHER, UserRole.ADMIN],
+          },
+        },
+        {
           // 共享 · 学习资源（学生端浏览下载；管理员资源总览）
           path: 'resources',
           name: 'resources',

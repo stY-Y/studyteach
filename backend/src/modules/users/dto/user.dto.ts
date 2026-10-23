@@ -111,6 +111,14 @@ export class TeacherProfileDto {
   title?: string;
 }
 
+/** 注销账号：需输入当前密码确认（不可逆操作） */
+export class DeleteAccountDto {
+  @ApiProperty({ description: '当前密码（用于二次确认）' })
+  @IsString()
+  @IsNotEmpty()
+  password: string;
+}
+
 export class LinkParentDto {
   @ApiProperty({ description: '学生用户名/手机号' })
   @IsString()

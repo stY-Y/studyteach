@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   DefaultValuePipe,
+  Delete,
   Get,
   ParseIntPipe,
   Patch,
@@ -17,6 +18,7 @@ import { UsersService, SafeUserListItem } from './users.service';
 import {
   ChangePasswordDto,
   CreateUserDto,
+  DeleteAccountDto,
   LinkParentDto,
   StudentProfileDto,
   TeacherProfileDto,
@@ -36,9 +38,11 @@ export class UsersController {
   }
 
   @Patch('me')
-  @ApiOperation({ summary: '更新当前用户基础信息' })
-  updateMe(@CurrentUser() user: AuthUser, @Body() dto: UpdateProfileDto) {
-    return this.usersService.updateProfile(user.id, dto);
+  @ApiOperation({ summary: '更新当前用户基础信息（姓名/手机号/头像）' })
+  async updateMe(@CurrentUser() user: AuthUser, @Body() dto: UpdateProfileDto) {
+    await this.usersService.updateProfile(user.id, dto);
+    // 返回安全视图，避免把 passwordHash 带出
+    return this.usersService.getMeView(user.id);
   }
 
   @Get('me/student-profile')
@@ -103,6 +107,12 @@ export class UsersController {
   @ApiOperation({ summary: '修改本人密码（需提供原密码）' })
   changePassword(@CurrentUser() user: AuthUser, @Body() dto: ChangePasswordDto) {
     return this.usersService.changePassword(user.id, dto);
+  }
+
+  @Delete('me')
+  @ApiOperation({ summary: '注销本人账号（密码确认，级联删除个人数据，不可恢复）' })
+  deleteMe(@CurrentUser() user: AuthUser, @Body() dto: DeleteAccountDto) {
+    return this.usersService.deleteAccount(user.id, dto.password);
   }
 
   @Get('students')

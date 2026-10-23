@@ -7,6 +7,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
+import { UsersService } from '../../modules/users/users.service';
 
 /** 全局 JWT 鉴权守卫（@Public 接口跳过） */
 @Injectable()
@@ -14,6 +15,7 @@ export class JwtAuthGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly jwtService: JwtService,
+    private readonly usersService: UsersService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -27,11 +29,18 @@ export class JwtAuthGuard implements CanActivate {
     const token = this.extractToken(request);
     if (!token) throw new UnauthorizedException('缺少访问令牌');
 
+    let payload: { id?: string } & Record<string, unknown>;
     try {
-      request.user = await this.jwtService.verifyAsync(token);
+      payload = await this.jwtService.verifyAsync(token);
     } catch {
       throw new UnauthorizedException('令牌无效或已过期');
     }
+
+    // 校验账号仍存在：注销账号后，旧令牌立即失效（无需等待 7 天过期）
+    const user = payload.id ? await this.usersService.findById(payload.id) : null;
+    if (!user) throw new UnauthorizedException('账号已注销或不存在');
+
+    request.user = payload;
     return true;
   }
 

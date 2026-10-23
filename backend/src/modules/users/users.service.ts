@@ -6,7 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { randomBytes, scryptSync, timingSafeEqual } from 'crypto';
 import { UserRole } from '@teachstudy/shared';
 import { User } from './entities/user.entity';
@@ -73,6 +73,7 @@ export class UsersService {
     @InjectRepository(ParentStudentLink)
     private readonly links: Repository<ParentStudentLink>,
     private readonly crypto: CryptoService,
+    private readonly dataSource: DataSource,
   ) {}
 
   // ---------- 密码（Node 原生 scrypt，无额外原生依赖） ----------
@@ -286,6 +287,12 @@ export class UsersService {
 
   // ---------- 家校绑定 ----------
   async linkParent(parentUserId: string, studentUsername: string): Promise<ParentStudentLink> {
+    // 一个手机号（家长账号）最多绑定 2 名学生，防止一号多用
+    const bound = await this.links.count({ where: { parentUserId, status: 'approved' } });
+    if (bound >= 2) {
+      throw new BadRequestException('一个手机号最多绑定 2 名学生');
+    }
+
     const student = await this.findByUsername(studentUsername);
     if (!student || student.role !== UserRole.STUDENT) {
       throw new NotFoundException('未找到该学生账号');
@@ -301,6 +308,55 @@ export class UsersService {
 
   listChildren(parentUserId: string): Promise<ParentStudentLink[]> {
     return this.links.find({ where: { parentUserId, status: 'approved' } });
+  }
+
+  /** 换绑手机号：新号未被占用时更新密文与盲索引（验证码校验由 auth 模块完成） */
+  async changePhone(userId: string, phone: string): Promise<{ updated: true }> {
+    const normalized = this.crypto.normalizePhone(phone);
+    const hash = this.crypto.blindIndex(normalized);
+    if (!normalized || !hash) throw new BadRequestException('手机号格式不正确');
+
+    const occupied = await this.users.findOne({ where: { phoneHash: hash } });
+    if (occupied && occupied.id !== userId) {
+      throw new ConflictException('该手机号已被其他账号使用');
+    }
+
+    await this.users.update(userId, {
+      phone: this.crypto.encrypt(normalized),
+      phoneHash: hash,
+    });
+    return { updated: true };
+  }
+
+  /**
+   * 注销账号：校验密码后删除账号与全部个人数据（个人信息保护法「删除权」）。
+   * 教学公共资产（已上传资源、已发布作业）保留，仅解除个人关联。
+   */
+  async deleteAccount(userId: string, password: string): Promise<{ deleted: true }> {
+    const user = await this.findById(userId);
+    if (!user) throw new NotFoundException('账号不存在');
+    if (!this.verifyPassword(password, user.passwordHash)) {
+      throw new UnauthorizedException('密码错误，无法注销账号');
+    }
+
+    await this.dataSource.transaction(async (m) => {
+      await m.query('DELETE FROM chat_messages WHERE sender_id = ?', [userId]);
+      await m.query('DELETE FROM homework_submissions WHERE student_id = ?', [userId]);
+      await m.query(
+        'DELETE FROM parent_student_links WHERE parent_user_id = ? OR student_user_id = ?',
+        [userId, userId],
+      );
+      await m.query('DELETE FROM diagnosis_records WHERE student_id = ?', [userId]);
+      await m.query('DELETE FROM grading_records WHERE student_id = ?', [userId]);
+      await m.query('DELETE FROM study_reports WHERE student_id = ?', [userId]);
+      await m.query('DELETE FROM volunteer_plans WHERE student_id = ?', [userId]);
+      await m.query('DELETE FROM student_profiles WHERE user_id = ?', [userId]);
+      await m.query('DELETE FROM teacher_profiles WHERE user_id = ?', [userId]);
+      // 教学公共资产保留，仅解除个人关联
+      await m.query('UPDATE resources SET owner_id = ? WHERE owner_id = ?', ['deleted-user', userId]);
+      await m.query('DELETE FROM users WHERE id = ?', [userId]);
+    });
+    return { deleted: true };
   }
 
   /**

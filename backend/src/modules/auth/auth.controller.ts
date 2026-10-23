@@ -1,10 +1,11 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { AuthUser, CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { AuthService } from './auth.service';
 import {
+  ChangePhoneDto,
   LoginDto,
   PhoneLoginDto,
   PhoneRegisterDto,
@@ -53,6 +54,12 @@ export class AuthController {
   @ApiOperation({ summary: '手机号 + 密码登录（统一错误信息，防账号枚举）' })
   loginByPhone(@Body() dto: PhoneLoginDto) {
     return this.authService.loginByPhone(dto);
+  }
+
+  @Patch('phone')
+  @ApiOperation({ summary: '换绑手机号（新手机号验证码校验，登录状态即可）' })
+  changePhone(@CurrentUser() user: AuthUser, @Body() dto: ChangePhoneDto) {
+    return this.authService.changePhone(user.id, dto);
   }
 
   @Get('me')
