@@ -34,7 +34,7 @@ export class DashboardService {
       .then((r: Array<{ c: number }>) => Number(r[0]?.c ?? 0));
   }
 
-  /** 平台管理员：全平台总览 */
+  /** 平台管理员：全平台总览（机构与内容资产，不含师生日常活动量） */
   private async platform(): Promise<Dashboard> {
     const [
       schools,
@@ -44,9 +44,6 @@ export class DashboardService {
       classes,
       resources,
       questions,
-      diagnoses,
-      gradings,
-      homeworks,
     ] = await Promise.all([
       this.count('SELECT COUNT(*) c FROM schools'),
       this.count(`SELECT COUNT(*) c FROM users WHERE role = 'student'`),
@@ -55,9 +52,6 @@ export class DashboardService {
       this.count('SELECT COUNT(*) c FROM class_rooms'),
       this.count(`SELECT COUNT(*) c FROM resources WHERE status = 'approved'`),
       this.count(`SELECT COUNT(*) c FROM questions WHERE status = 'approved'`),
-      this.count('SELECT COUNT(*) c FROM diagnosis_records'),
-      this.count('SELECT COUNT(*) c FROM grading_records'),
-      this.count('SELECT COUNT(*) c FROM homework'),
     ]);
     return {
       role: 'platform',
@@ -69,9 +63,6 @@ export class DashboardService {
       classes,
       resources,
       questions,
-      diagnoses,
-      gradings,
-      homeworks,
     };
   }
 
@@ -192,8 +183,25 @@ export class DashboardService {
     };
   }
 
-  /** 学生：我的学习概览 */
+  /** 学生：我的学习概览 + 所在班级的通知与消息 */
   private async student(actor: AuthUser): Promise<Dashboard> {
+    // 学生已加入（审核通过）的班级
+    const memberRows = (await this.ds.query(
+      `SELECT class_id FROM class_members WHERE student_id = ? AND status = 'approved'`,
+      [actor.id],
+    )) as Array<{ class_id: string }>;
+    const classIds = memberRows.map((r) => r.class_id);
+
+    let notices = 0;
+    let messages = 0;
+    if (classIds.length) {
+      const ph = classIds.map(() => '?').join(',');
+      [notices, messages] = await Promise.all([
+        this.count(`SELECT COUNT(*) c FROM class_notices WHERE class_id IN (${ph})`, classIds),
+        this.count(`SELECT COUNT(*) c FROM chat_messages WHERE class_id IN (${ph})`, classIds),
+      ]);
+    }
+
     const [diagnoses, gradings, homeworks, reports] = await Promise.all([
       this.count('SELECT COUNT(*) c FROM diagnosis_records WHERE student_id = ?', [actor.id]),
       this.count('SELECT COUNT(*) c FROM grading_records WHERE student_id = ?', [actor.id]),
@@ -206,6 +214,8 @@ export class DashboardService {
     return {
       role: actor.role,
       generatedAt: new Date().toISOString(),
+      notices,
+      messages,
       diagnoses,
       gradings,
       homeworks,
@@ -213,7 +223,7 @@ export class DashboardService {
     };
   }
 
-  /** 家长：孩子的学习概览 */
+  /** 家长：孩子的学习概览（诊断与作业提交，不看批改细节） */
   private async parent(actor: AuthUser): Promise<Dashboard> {
     const rows = (await this.ds.query(
       `SELECT student_user_id FROM parent_student_links WHERE parent_user_id = ? AND status = 'approved'`,
@@ -224,10 +234,9 @@ export class DashboardService {
       return { role: actor.role, generatedAt: new Date().toISOString(), children: 0 };
     }
     const ph = childIds.map(() => '?').join(',');
-    const [children, diagnoses, gradings, homeworks] = await Promise.all([
+    const [children, diagnoses, homeworks] = await Promise.all([
       this.count(`SELECT COUNT(*) c FROM users WHERE id IN (${ph})`, childIds),
       this.count(`SELECT COUNT(*) c FROM diagnosis_records WHERE student_id IN (${ph})`, childIds),
-      this.count(`SELECT COUNT(*) c FROM grading_records WHERE student_id IN (${ph})`, childIds),
       this.count(
         `SELECT COUNT(*) c FROM homework_submissions WHERE student_id IN (${ph})`,
         childIds,
@@ -238,7 +247,6 @@ export class DashboardService {
       generatedAt: new Date().toISOString(),
       children,
       diagnoses,
-      gradings,
       homeworks,
     };
   }
