@@ -7,6 +7,43 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="description" content="青禾 · 乡村公益助学平台 · 纯公益 · 全免费 · 无广告" />
     <title>青禾</title>
+    <script>
+      /*
+       * 低版本浏览器兜底（ES5 写法，保证 IE11 也能执行）：
+       * 校园里仍有 Windows 7 + IE11 / 老版浏览器的电脑，Vue 3 无法运行，
+       * 直接白屏会让人误以为"网站坏了"，这里给出明确的中文升级提示。
+       */
+      (function () {
+        var unsupported = false;
+        try {
+          if (typeof Promise === 'undefined' || typeof fetch === 'undefined') unsupported = true;
+          if (!window.CSS || !window.CSS.supports || !window.CSS.supports('color', 'var(--c-bg)')) {
+            unsupported = true;
+          }
+          // ES2015 语法能力探测：IE11 会在 new Function 解析时报 SyntaxError
+          new Function('const a = 1; let b = 2; return a + b;');
+          new Function('return (() => 1)();');
+        } catch (e) {
+          unsupported = true;
+        }
+
+        window.__QINGHE_UNSUPPORTED__ = unsupported;
+        if (!unsupported) return;
+
+        document.documentElement.innerHTML =
+          '<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">' +
+          '<title>浏览器版本过低 · 青禾</title></head>' +
+          '<body style="margin:0;background:#faf4e9;color:#3d3327;font-family:system-ui,-apple-system,\'Microsoft YaHei\',sans-serif;">' +
+          '<div style="max-width:560px;margin:12vh auto;padding:24px;background:#fff;border:1px solid #e8dcc6;border-radius:12px;">' +
+          '<h1 style="font-size:20px;margin:0 0 12px;">浏览器版本过低</h1>' +
+          '<p style="line-height:1.75;font-size:15px;margin:0 0 10px;">青禾需要较新的浏览器才能正常使用，请升级后再打开：</p>' +
+          '<ul style="line-height:1.9;font-size:15px;margin:0;padding-left:20px;">' +
+          '<li>Windows 10 / 11：使用最新版 Edge 或 Chrome</li>' +
+          '<li>Windows 7：使用 Chrome 109 或 Edge 109（IE 浏览器不支持）</li>' +
+          '<li>手机：使用系统浏览器或微信内置浏览器</li>' +
+          '</ul></div></body>';
+      })();
+    </script>
   </head>
   <body>
     <div id="app"></div>

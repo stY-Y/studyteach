@@ -4,6 +4,9 @@
   "private": true,
   "description": "青禾后端（NestJS + TypeScript，轻量端云一体）",
   "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "build": "nest build",
     "start": "nest start",
