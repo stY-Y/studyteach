@@ -2,7 +2,14 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import { orgApi, type SchoolRow, type TeacherCandidate } from '../../api/org';
 import { STAFF_LABELS } from '../../config/staff';
-import { StaffRole } from '@teachstudy/shared';
+import { StaffRole, UserRole } from '@teachstudy/shared';
+import NoPermissionCard from '../../components/NoPermissionCard.vue';
+import { useAuthStore } from '../../stores/auth';
+
+const auth = useAuthStore();
+
+/** 学校管理是平台专属：普通教师、学校管理员都无权限 */
+const allowed = computed(() => auth.user?.role === UserRole.ADMIN);
 
 const schools = ref<SchoolRow[]>([]);
 const teachers = ref<TeacherCandidate[]>([]);
@@ -117,11 +124,13 @@ async function dismiss(school: SchoolRow, userId: string): Promise<void> {
   }
 }
 
-onMounted(load);
+onMounted(() => {
+  if (allowed.value) void load();
+});
 </script>
 
 <template>
-  <div class="stack">
+  <div v-if="allowed" class="stack">
     <h1 class="page-title">学校管理</h1>
     <p class="text-soft text-sm">
       学校管理员是<b>任命</b>出来的，不能通过注册获得：教师先自行注册教师端，你在下方选择该教师并任命。
@@ -199,6 +208,7 @@ onMounted(load);
       提示：本校没有可选教师时，请让该教师先注册教师端账号（注册后即为教师身份，等待任命）。
     </p>
   </div>
+  <NoPermissionCard v-else need="platform" />
 </template>
 
 <style scoped>

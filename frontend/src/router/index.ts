@@ -1,6 +1,7 @@
-import { UserRole } from '@teachstudy/shared';
+import { StaffRole, UserRole } from '@teachstudy/shared';
 import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
+import { hasStaff } from '../config/staff';
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -9,6 +10,10 @@ declare module 'vue-router' {
     title?: string;
     /** 限定可访问角色；缺省表示所有已登录角色均可访问 */
     roles?: UserRole[];
+    /** 需要某个任命岗位（平台管理员不受限）；不足时显示「您无权限管理」 */
+    staff?: StaffRole;
+    /** 仅平台管理员可访问 */
+    platformOnly?: boolean;
   }
 }
 
@@ -93,25 +98,40 @@ const router = createRouter({
           meta: { title: '账号与安全' },
         },
         {
+          // 权限不足提示（岗位不足 / 平台专属页面被非平台账号访问）
+          path: 'no-permission',
+          name: 'noPermission',
+          component: () => import('../views/shared/NoPermissionView.vue'),
+          meta: { title: '无权限访问' },
+        },
+        {
           // 平台管理员 · 学校管理（学校增删、学校管理员任命/卸任）
           path: 'school-manage',
           name: 'schoolManage',
           component: () => import('../views/admin/SchoolManageView.vue'),
-          meta: { title: '学校管理', roles: [UserRole.ADMIN] },
+          meta: { title: '学校管理', roles: [UserRole.ADMIN], platformOnly: true },
         },
         {
           // 学校管理员 · 年级管理（年级增删、年级管理员任命/卸任、通知）
           path: 'grade-manage',
           name: 'gradeManage',
           component: () => import('../views/school/GradeManageView.vue'),
-          meta: { title: '年级管理', roles: [UserRole.SCHOOL_ADMIN, UserRole.ADMIN] },
+          meta: {
+            title: '年级管理',
+            roles: [UserRole.SCHOOL_ADMIN, UserRole.ADMIN],
+            staff: StaffRole.SCHOOL_ADMIN,
+          },
         },
         {
           // 年级管理员 · 班级管理（班级增删、班主任任命/卸任、通知）
           path: 'class-manage',
           name: 'classManage',
           component: () => import('../views/grade/ClassManageView.vue'),
-          meta: { title: '班级管理', roles: [UserRole.GRADE_ADMIN, UserRole.ADMIN] },
+          meta: {
+            title: '班级管理',
+            roles: [UserRole.GRADE_ADMIN, UserRole.ADMIN],
+            staff: StaffRole.GRADE_ADMIN,
+          },
         },
         {
           // 学校管理员/年级管理员/班主任 · 通知收件箱
@@ -246,14 +266,14 @@ const router = createRouter({
           path: 'users',
           name: 'users',
           component: () => import('../views/admin/UsersView.vue'),
-          meta: { title: '用户管理', roles: [UserRole.ADMIN] },
+          meta: { title: '用户管理', roles: [UserRole.ADMIN], platformOnly: true },
         },
         {
           // 管理员 · 升学数据
           path: 'enrollment',
           name: 'enrollment',
           component: () => import('../views/admin/EnrollmentView.vue'),
-          meta: { title: '升学数据', roles: [UserRole.ADMIN] },
+          meta: { title: '升学数据', roles: [UserRole.ADMIN], platformOnly: true },
         },
         {
           // 管理员 · 资源复核（已实现界面：校级审核 + 平台复核）
@@ -296,9 +316,31 @@ router.beforeEach((to) => {
     return { name: 'login', query: { redirect: to.fullPath } };
   }
 
+  // 管理岗位校验：岗位不足时给出明确的「您无权限管理」提示，而不是静默退回工作台
+  let staffPassed = false;
+  if (auth.user) {
+    const isPlatformAdmin = auth.user.role === UserRole.ADMIN;
+
+    if (to.meta.platformOnly) {
+      if (!isPlatformAdmin) {
+        return { name: 'noPermission', query: { need: 'platform', from: to.fullPath } };
+      }
+      staffPassed = true;
+    }
+
+    if (to.meta.staff) {
+      // 平台管理员可视同具备任意管理岗位（便于平台排查问题）
+      if (!isPlatformAdmin && !hasStaff(auth.user, to.meta.staff)) {
+        return { name: 'noPermission', query: { need: to.meta.staff, from: to.fullPath } };
+      }
+      staffPassed = true;
+    }
+  }
+
   // 角色限定：角色不符时退回工作台（例如家长直接访问学生端诊断页）
+  // 岗位已通过校验的页面不再看派生角色，避免「刚被任命但角色还没刷新」被误拦
   const roles = to.meta.roles;
-  if (roles && roles.length > 0 && auth.user && !roles.includes(auth.user.role)) {
+  if (!staffPassed && roles && roles.length > 0 && auth.user && !roles.includes(auth.user.role)) {
     return { name: 'home' };
   }
 

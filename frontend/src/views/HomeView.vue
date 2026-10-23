@@ -143,8 +143,9 @@ onMounted(async () => {
       </p>
 
       <p v-if="auth.user?.role === UserRole.TEACHER && !isStaff(auth.user)" class="alert alert-info">
-        你还没有被任命管理岗位。组卷、题库、资源上传等功能可直接使用；
-        如需管理年级或班级，请等待学校管理员 / 年级管理员任命。
+        你还没有被任命管理岗位，组卷、题库、资源上传等功能可直接使用。<br />
+        管理功能需要任命后才能使用：<b>学校管理</b>仅平台管理员可用；<b>年级管理</b>需学校管理员岗位；
+        <b>班级管理</b>需年级管理员岗位；<b>班主任</b>需班级管理员岗位。直接访问这些页面会提示「您无权限管理」。
       </p>
 
       <div v-if="roleConfig" class="grid grid-gap">

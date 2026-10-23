@@ -1,11 +1,17 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 import { orgApi, type GradeRow, type NoticeRow, type TeacherCandidate } from '../../api/org';
-import { STAFF_LABELS } from '../../config/staff';
+import { STAFF_LABELS, hasStaff } from '../../config/staff';
 import { useAuthStore } from '../../stores/auth';
-import { StaffRole } from '@teachstudy/shared';
+import { StaffRole, UserRole } from '@teachstudy/shared';
+import NoPermissionCard from '../../components/NoPermissionCard.vue';
 
 const auth = useAuthStore();
+
+/** 年级管理需要「学校管理员」岗位（平台管理员可视同具备） */
+const allowed = computed(
+  () => auth.user?.role === UserRole.ADMIN || hasStaff(auth.user, StaffRole.SCHOOL_ADMIN),
+);
 
 const grades = ref<GradeRow[]>([]);
 const teachers = ref<TeacherCandidate[]>([]);
@@ -187,11 +193,13 @@ async function sendNotice(): Promise<void> {
   }
 }
 
-onMounted(load);
+onMounted(() => {
+  if (allowed.value) void load();
+});
 </script>
 
 <template>
-  <div class="stack">
+  <div v-if="allowed" class="stack">
     <h1 class="page-title">年级管理</h1>
     <p class="text-soft text-sm">
       学校下设 12 个年级（小学 6 + 初中 3 + 高中 3）。年级管理员同样是<b>任命</b>制：
@@ -317,6 +325,7 @@ onMounted(load);
       </div>
     </section>
   </div>
+  <NoPermissionCard v-else need="school_admin" />
 </template>
 
 <style scoped>

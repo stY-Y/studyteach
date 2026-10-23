@@ -7,8 +7,17 @@ import {
   type OrgClassRow,
   type TeacherCandidate,
 } from '../../api/org';
-import { STAFF_LABELS } from '../../config/staff';
-import { StaffRole } from '@teachstudy/shared';
+import { STAFF_LABELS, hasStaff } from '../../config/staff';
+import { StaffRole, UserRole } from '@teachstudy/shared';
+import NoPermissionCard from '../../components/NoPermissionCard.vue';
+import { useAuthStore } from '../../stores/auth';
+
+const auth = useAuthStore();
+
+/** 班级管理需要「年级管理员」岗位（平台管理员可视同具备） */
+const allowed = computed(
+  () => auth.user?.role === UserRole.ADMIN || hasStaff(auth.user, StaffRole.GRADE_ADMIN),
+);
 
 const grades = ref<GradeRow[]>([]);
 const classes = ref<OrgClassRow[]>([]);
@@ -186,13 +195,14 @@ watch(gradeId, () => {
 });
 
 onMounted(async () => {
+  if (!allowed.value) return;
   await loadGrades();
   await loadClasses();
 });
 </script>
 
 <template>
-  <div class="stack">
+  <div v-if="allowed" class="stack">
     <h1 class="page-title">班级管理</h1>
     <p class="text-soft text-sm">
       建班由<b>年级管理员</b>统一操作。班级管理员即班主任，同样是任命制：
@@ -315,6 +325,7 @@ onMounted(async () => {
       </div>
     </section>
   </div>
+  <NoPermissionCard v-else need="grade_admin" />
 </template>
 
 <style scoped>
