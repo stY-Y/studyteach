@@ -1,29 +1,45 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
-import { orgApi, type GradeRow } from '../../api/org';
+import { orgApi, type GradeRow, type NoticeRow, type TeacherCandidate } from '../../api/org';
+import { STAFF_LABELS } from '../../config/staff';
 import { useAuthStore } from '../../stores/auth';
+import { StaffRole } from '@teachstudy/shared';
 
 const auth = useAuthStore();
-const schoolId = computed(() => auth.user?.schoolId ?? '');
 
 const grades = ref<GradeRow[]>([]);
+const teachers = ref<TeacherCandidate[]>([]);
+const sent = ref<NoticeRow[]>([]);
 const loading = ref(true);
 const error = ref('');
 const tip = ref('');
 const acting = ref('');
 
-const form = reactive({ name: '' });
+const newGrade = reactive({ name: '' });
 const creating = ref(false);
-const appointInput = reactive<Record<string, string>>({});
+const pick = reactive<Record<string, string>>({});
 
+/** 通知：学校管理员 → 年级管理员 */
 const notice = reactive({ gradeId: '', title: '', content: '' });
-const sendingNotice = ref(false);
+const sending = ref(false);
+
+const GRADES = [
+  '一年级', '二年级', '三年级', '四年级', '五年级', '六年级',
+  '七年级', '八年级', '九年级', '高一', '高二', '高三',
+];
+const availableGrades = computed(() =>
+  GRADES.filter((g) => !grades.value.some((x) => x.name === g)),
+);
 
 async function load(): Promise<void> {
   loading.value = true;
   error.value = '';
   try {
-    grades.value = await orgApi.grades(schoolId.value || undefined);
+    const [g, t, s] = await Promise.all([orgApi.grades(), orgApi.teachers(), orgApi.sent()]);
+    grades.value = g;
+    teachers.value = t;
+    sent.value = s;
+    if (!notice.gradeId && g.length > 0) notice.gradeId = g[0].id;
   } catch (err) {
     error.value = (err as Error).message;
   } finally {
@@ -31,22 +47,29 @@ async function load(): Promise<void> {
   }
 }
 
+function candidatesOf(grade: GradeRow): TeacherCandidate[] {
+  const taken = new Set(grade.admins.map((a) => a.userId));
+  return teachers.value.filter((t) => !taken.has(t.id));
+}
+
+function roleText(roles: string[]): string {
+  if (!roles || roles.length === 0) return '';
+  return roles.map((r) => STAFF_LABELS[r as StaffRole] ?? r).join(' · ');
+}
+
 async function createGrade(): Promise<void> {
   error.value = '';
   tip.value = '';
-  if (!schoolId.value) {
-    error.value = '当前账号未绑定学校，请联系平台管理员';
-    return;
-  }
-  if (!form.name.trim()) {
-    error.value = '请填写年级名称';
+  const name = newGrade.name.trim();
+  if (!name) {
+    error.value = '请选择要新增的年级';
     return;
   }
   creating.value = true;
   try {
-    await orgApi.createGrade({ schoolId: schoolId.value, name: form.name.trim() });
-    tip.value = '年级已新增';
-    form.name = '';
+    await orgApi.createGrade({ schoolId: auth.user?.schoolId ?? '', name });
+    tip.value = `已新增「${name}」`;
+    newGrade.name = '';
     await load();
   } catch (err) {
     error.value = (err as Error).message;
@@ -73,16 +96,17 @@ async function removeGrade(grade: GradeRow): Promise<void> {
 async function appoint(grade: GradeRow): Promise<void> {
   error.value = '';
   tip.value = '';
-  const username = (appointInput[grade.id] ?? '').trim();
-  if (!username) {
-    error.value = '请输入教师账号';
+  const userId = pick[grade.id];
+  if (!userId) {
+    error.value = '请先选择要任命的教师';
     return;
   }
   acting.value = grade.id;
   try {
-    await orgApi.appointGradeAdmin(grade.id, username);
-    appointInput[grade.id] = '';
-    tip.value = `已任命 ${username} 为「${grade.name}」年级管理员`;
+    await orgApi.appointGradeAdmin(grade.id, userId);
+    const name = teachers.value.find((t) => t.id === userId)?.name ?? '该教师';
+    pick[grade.id] = '';
+    tip.value = `已任命 ${name} 为${grade.name}年级管理员`;
     await load();
   } catch (err) {
     error.value = (err as Error).message;
@@ -91,13 +115,13 @@ async function appoint(grade: GradeRow): Promise<void> {
   }
 }
 
-async function dismiss(grade: GradeRow): Promise<void> {
+async function dismiss(grade: GradeRow, userId: string): Promise<void> {
   error.value = '';
   tip.value = '';
   acting.value = grade.id;
   try {
-    await orgApi.dismissGradeAdmin(grade.id);
-    tip.value = '已卸任该年级管理员（账号恢复为教师）';
+    await orgApi.dismissGradeAdmin(grade.id, userId);
+    tip.value = '已卸任该年级管理员';
     await load();
   } catch (err) {
     error.value = (err as Error).message;
@@ -117,7 +141,7 @@ async function sendNotice(): Promise<void> {
     error.value = '请填写通知标题与内容';
     return;
   }
-  sendingNotice.value = true;
+  sending.value = true;
   try {
     await orgApi.createNotice({
       toRole: 'grade_admin',
@@ -128,10 +152,11 @@ async function sendNotice(): Promise<void> {
     tip.value = '通知已下发给该年级管理员';
     notice.title = '';
     notice.content = '';
+    await load();
   } catch (err) {
     error.value = (err as Error).message;
   } finally {
-    sendingNotice.value = false;
+    sending.value = false;
   }
 }
 
@@ -142,7 +167,8 @@ onMounted(load);
   <div class="stack">
     <h1 class="page-title">年级管理</h1>
     <p class="text-soft text-sm">
-      学校管理员负责本校年级的增删、年级管理员的任命与卸任，并可向年级管理员下发通知。
+      学校下设 12 个年级（小学 6 + 初中 3 + 高中 3）。年级管理员同样是<b>任命</b>制：
+      从本校教师中选择并任命，每个年级最多 <b>2</b> 名；班级管理员由年级管理员继续任命。
     </p>
 
     <div v-if="error" class="alert alert-danger">{{ error }}</div>
@@ -150,78 +176,106 @@ onMounted(load);
 
     <section class="card stack">
       <h2 class="section-title">新增年级</h2>
-      <div class="field-row">
-        <input v-model.trim="form.name" class="input" type="text" maxlength="32" placeholder="如：八年级" />
-        <button class="btn btn-primary" type="button" :disabled="creating" @click="createGrade">
-          {{ creating ? '新增中…' : '新增年级' }}
+      <div class="inline-form">
+        <select v-model="newGrade.name" class="input">
+          <option value="">选择年级…</option>
+          <option v-for="g in availableGrades" :key="g" :value="g">{{ g }}</option>
+        </select>
+        <button class="btn btn-sm btn-primary" type="button" :disabled="creating" @click="createGrade">
+          {{ creating ? '新增中…' : '新增' }}
         </button>
       </div>
+      <p v-if="availableGrades.length === 0" class="text-xs text-faint">12 个标准年级已全部创建。</p>
     </section>
 
     <section class="card stack">
-      <h2 class="section-title">本校年级（{{ grades.length }}）</h2>
+      <h2 class="section-title">年级列表（{{ grades.length }}）</h2>
       <p v-if="loading" class="text-sm text-soft">加载中…</p>
-      <p v-else-if="grades.length === 0" class="empty">还没有年级，先新增一个。</p>
+      <p v-else-if="grades.length === 0" class="empty">还没有年级。</p>
 
       <div v-for="g in grades" :key="g.id" class="grade-block">
         <div class="row-item">
           <div class="grow">
             <p class="item-title">{{ g.name }}</p>
-            <p class="text-xs text-faint">
-              年级管理员：{{ g.gradeAdminName || '未任命' }} · 班级 {{ g.classCount }} 个
-            </p>
+            <p class="text-xs text-faint">{{ g.classCount }} 个班级</p>
           </div>
-          <button v-if="g.gradeAdminId" class="btn btn-sm" type="button" :disabled="acting === g.id" @click="dismiss(g)">
-            卸任管理员
-          </button>
           <button class="btn btn-sm" type="button" :disabled="acting === g.id" @click="removeGrade(g)">
-            删除年级
+            删除
           </button>
         </div>
 
-        <div v-if="!g.gradeAdminId" class="appoint-row">
-          <input v-model="appointInput[g.id]" class="input" type="text" placeholder="输入教师账号，任命为年级管理员" />
+        <div class="admins">
+          <span class="text-xs text-soft">年级管理员（{{ g.admins.length }}/{{ g.adminLimit }}）：</span>
+          <span v-if="g.admins.length === 0" class="text-xs text-faint">尚未任命</span>
+          <span v-for="a in g.admins" :key="a.appointmentId" class="admin-chip">
+            {{ a.name || a.username }}
+            <button type="button" class="chip-x" title="卸任" @click="dismiss(g, a.userId)">×</button>
+          </span>
+        </div>
+
+        <div v-if="g.admins.length < g.adminLimit" class="inline-form tight">
+          <select v-model="pick[g.id]" class="input">
+            <option value="">选择教师…</option>
+            <option v-for="t in candidatesOf(g)" :key="t.id" :value="t.id">
+              {{ t.name }}（{{ t.username }}{{ t.schoolId ? '' : ' · 未归属学校' }}）
+              {{ roleText(t.roles) ? ' · 已是' + roleText(t.roles) : '' }}
+            </option>
+          </select>
           <button class="btn btn-sm btn-primary" type="button" :disabled="acting === g.id" @click="appoint(g)">
             任命
           </button>
         </div>
+        <p v-else class="text-xs text-faint note">
+          已满 {{ g.adminLimit }} 名，需先卸任一位才能任命新的年级管理员。
+        </p>
       </div>
     </section>
 
     <section class="card stack">
-      <h2 class="section-title">向年级管理员下发通知</h2>
+      <h2 class="section-title">下发通知给年级管理员</h2>
       <div class="field">
-        <label class="field-label" for="n-grade">目标年级</label>
-        <select id="n-grade" v-model="notice.gradeId" class="input">
-          <option value="">请选择年级</option>
+        <label class="field-label" for="nt-grade">目标年级</label>
+        <select id="nt-grade" v-model="notice.gradeId" class="input">
           <option v-for="g in grades" :key="g.id" :value="g.id">{{ g.name }}</option>
         </select>
       </div>
       <div class="field">
-        <label class="field-label" for="n-title">标题</label>
-        <input id="n-title" v-model.trim="notice.title" class="input" type="text" maxlength="120" placeholder="如：本周教研安排" />
+        <label class="field-label" for="nt-title">标题</label>
+        <input id="nt-title" v-model.trim="notice.title" class="input" type="text" maxlength="120" placeholder="如：本周教研安排" />
       </div>
       <div class="field">
-        <label class="field-label" for="n-content">内容</label>
-        <textarea id="n-content" v-model="notice.content" class="input" rows="3" maxlength="2000" placeholder="填写通知内容" />
+        <label class="field-label" for="nt-content">内容</label>
+        <textarea id="nt-content" v-model.trim="notice.content" class="input" rows="3" maxlength="2000" placeholder="写清时间、地点与要做的事" />
       </div>
-      <button class="btn btn-primary self-start" type="button" :disabled="sendingNotice" @click="sendNotice">
-        {{ sendingNotice ? '下发中…' : '下发通知' }}
+      <button class="btn btn-primary self-start" type="button" :disabled="sending" @click="sendNotice">
+        {{ sending ? '发送中…' : '发送通知' }}
       </button>
-      <p class="text-xs text-faint">年级管理员登录后可在「通知」中查看。</p>
+
+      <div v-if="sent.length > 0" class="stack">
+        <p class="text-xs text-soft">我发出的通知（{{ sent.length }}）</p>
+        <div v-for="n in sent.slice(0, 5)" :key="n.id" class="sent-item">
+          <p class="item-title">{{ n.title }}</p>
+          <p class="text-xs text-faint">{{ new Date(n.createdAt).toLocaleString() }}</p>
+        </div>
+      </div>
     </section>
   </div>
 </template>
 
 <style scoped>
-.field-row {
+.inline-form {
   display: flex;
   gap: 8px;
+  align-items: center;
 }
 
-.field-row .input {
+.inline-form .input {
   flex: 1;
   min-width: 0;
+}
+
+.inline-form.tight {
+  margin-top: 8px;
 }
 
 .self-start {
@@ -253,14 +307,41 @@ onMounted(load);
   font-weight: 600;
 }
 
-.appoint-row {
+.admins {
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.admin-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: 12px;
+  background: var(--c-primary-soft);
+  color: var(--c-primary-dark);
+  border-radius: 999px;
+}
+
+.chip-x {
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0;
+}
+
+.note {
   margin-top: 8px;
 }
 
-.appoint-row .input {
-  flex: 1;
-  min-width: 0;
+.sent-item {
+  padding: 6px 0;
+  border-top: 1px dashed var(--c-border);
 }
 </style>

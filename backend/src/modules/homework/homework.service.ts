@@ -181,9 +181,10 @@ export class HomeworkService {
       };
     }
 
-    if (actor.role === UserRole.TEACHER) {
+    // 非学生（班级管理员 / 年级管理员 / 学校管理员）走管理权限校验
+    if (actor.role !== UserRole.STUDENT) {
       const ok = await this.classes.canManage(actor, homework.classId);
-      if (!ok) throw new ForbiddenException('只有该班创建教师可以查看作业');
+      if (!ok) throw new ForbiddenException('只有该班的班级管理员可以查看作业');
     }
     return homework;
   }

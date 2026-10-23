@@ -259,7 +259,9 @@ onUnmounted(clearTimer);
               {{ r.label }}
             </button>
           </div>
-          <p class="text-xs text-faint">管理员账号不开放注册，由平台统一分配</p>
+          <p class="text-xs text-faint">
+            管理员不开放注册：教师注册后由平台/学校管理员逐级任命学校、年级、班级管理员岗位。
+          </p>
         </div>
 
         <!-- 学生必填：学校 / 年级 / 班级 -->

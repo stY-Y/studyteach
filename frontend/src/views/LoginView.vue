@@ -188,10 +188,10 @@ async function onSubmit(): Promise<void> {
 
         <p class="hint text-xs text-faint">
           <template v-if="mode === 'phone'">
-            手机号登录使用注册时设置的密码；忘记密码可联系学校管理员重置。
+            手机号登录使用注册时设置的密码；忘记密码请联系你的学校管理员。
           </template>
           <template v-else>
-            实际进入的工作台以账号角色为准。管理员创建的账号使用随机初始密码，登录后请尽快到「修改密码」里改掉。
+            进入后显示的功能以你的<b>任命岗位</b>为准：学校/年级/班级管理员都由上级任命，不能注册获得。
           </template>
         </p>
 

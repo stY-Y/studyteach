@@ -40,7 +40,18 @@ export class JwtAuthGuard implements CanActivate {
     const user = payload.id ? await this.usersService.findById(payload.id) : null;
     if (!user) throw new UnauthorizedException('账号已注销或不存在');
 
-    request.user = payload;
+    // 岗位与角色实时取自数据库：任命/卸任后无需重新登录即刻生效
+    const staff = await this.usersService.staffContext(user.id);
+    request.user = {
+      ...payload,
+      role: user.role,
+      name: user.name,
+      schoolId: user.schoolId,
+      staffRoles: staff.staffRoles,
+      classIds: staff.classIds,
+      gradeIds: staff.gradeIds,
+      schoolIds: staff.schoolIds,
+    };
     return true;
   }
 

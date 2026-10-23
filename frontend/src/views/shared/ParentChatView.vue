@@ -21,7 +21,10 @@ const error = ref('');
 const listEl = ref<HTMLElement | null>(null);
 
 const isParent = computed(() => auth.user?.role === UserRole.PARENT);
-const isTeacher = computed(() => auth.user?.role === UserRole.TEACHER);
+// 回复方：所有教师侧身份（含被任命为管理员的教师）
+const isTeacher = computed(
+  () => !isParent.value && auth.user?.role !== UserRole.STUDENT,
+);
 const myId = computed(() => auth.user?.id);
 
 let timer: number | null = null;

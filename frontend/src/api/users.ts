@@ -22,6 +22,11 @@ export interface MeResult {
   schoolId?: string;
   studentProfile?: StudentProfile | null;
   teacherProfile?: unknown;
+  /** 任命制岗位 */
+  staffRoles?: string[];
+  classIds?: string[];
+  gradeIds?: string[];
+  schoolIds?: string[];
 }
 
 /** 用户列表项（管理员） */

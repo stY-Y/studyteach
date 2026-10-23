@@ -1,4 +1,4 @@
-import { UserRole } from '@teachstudy/shared';
+import { StaffRole, UserRole } from '@teachstudy/shared';
 
 /** 角色端配置 */
 export interface ModuleEntry {
@@ -13,6 +13,11 @@ export interface ModuleEntry {
   path?: string;
   /** 界面是否已实现（false 表示仅入口占位） */
   ready: boolean;
+  /**
+   * 需要的任命岗位：设置后仅担任该岗位的用户可见。
+   * 管理员全部是任命制，注册只产生教师身份。
+   */
+  staff?: StaffRole;
 }
 
 export interface RoleConfig {
@@ -52,11 +57,13 @@ export const ROLE_CONFIG: Record<UserRole, RoleConfig> = {
       { key: 'upload', name: '资源上传', icon: '⬆️', desc: '批量上传校本试题、导学案、电子书、视频、音频', api: 'POST /resources/upload', path: '/upload', ready: true },
       { key: 'mine', name: '我的资源', icon: '📁', desc: '管理本校上传资源，可修改开放范围或下架', api: 'GET /resources/mine', path: '/resources/mine', ready: true },
       { key: 'knowledge', name: '知识图谱', icon: '🌳', desc: '查看全学段知识点树，维护知识点结构', api: 'GET /knowledge/tree', path: '/knowledge', ready: true },
-      { key: 'studentReport', name: '学情查看', icon: '👀', desc: '查看本班学生学情报表：诊断次数、薄弱点与掌握度', api: 'GET /reports/student/:id', path: '/students', ready: true },
-      { key: 'classes', name: '我的班级', icon: '🏫', desc: '创建班级、审核学生入班申请、管理班级成员', api: 'POST /classes', path: '/class', ready: true },
-      { key: 'chat', name: '班级聊天', icon: '💬', desc: '班级群聊内发布作业、查看提交与答疑（仅本班创建教师可见）', api: 'GET /chat/messages', path: '/chat', ready: true },
-      { key: 'parentChat', name: '家长沟通', icon: '👨‍👩‍👧', desc: '查看并回复本班家长的留言（仅本班创建教师可见）', api: 'GET /parent-chat/threads', path: '/parent-chat', ready: true },
-      { key: 'notices', name: '通知', icon: '📢', desc: '查看年级管理员下发到本班的通知', api: 'GET /org/notices', path: '/notices', ready: true },
+      { key: 'gradeManage', name: '年级管理', icon: '🏫', desc: '新增年级、任命或卸任年级管理员（每校每年级最多 2 名），向下发通知', api: 'GET /org/grades', path: '/grade-manage', ready: true, staff: StaffRole.SCHOOL_ADMIN },
+      { key: 'classManage', name: '班级管理', icon: '🏛️', desc: '建班、任命或卸任班级管理员（每班最多 2 名），向下发通知', api: 'GET /org/classes', path: '/class-manage', ready: true, staff: StaffRole.GRADE_ADMIN },
+      { key: 'studentReport', name: '学情查看', icon: '👀', desc: '查看本班学生学情报表：诊断次数、薄弱点与掌握度', api: 'GET /reports/student/:id', path: '/students', ready: true, staff: StaffRole.CLASS_ADMIN },
+      { key: 'classes', name: '我的班级', icon: '🎒', desc: '审核学生入班申请、管理班级成员，可把学生转到其他班级', api: 'POST /classes', path: '/class', ready: true, staff: StaffRole.CLASS_ADMIN },
+      { key: 'chat', name: '班级聊天', icon: '💬', desc: '班级主页：群聊 + 发布作业 + 查看提交（仅本班班级管理员）', api: 'GET /chat/messages', path: '/chat', ready: true, staff: StaffRole.CLASS_ADMIN },
+      { key: 'parentChat', name: '家长沟通', icon: '👨‍👩‍👧', desc: '查看并回复本班家长的留言（仅本班班级管理员可见）', api: 'GET /parent-chat/threads', path: '/parent-chat', ready: true, staff: StaffRole.CLASS_ADMIN },
+      { key: 'notices', name: '通知', icon: '📢', desc: '查看年级管理员下发到本班的通知', api: 'GET /org/notices', path: '/notices', ready: true, staff: StaffRole.CLASS_ADMIN },
       { key: 'settings', name: '账号与安全', icon: '⚙️', desc: '修改姓名、换绑手机号，或注销账号', api: 'PATCH /auth/phone', path: '/settings', ready: true },
     ],
   },
@@ -109,11 +116,13 @@ export const ROLE_CONFIG: Record<UserRole, RoleConfig> = {
 };
 
 /** 四端入口（登录页展示用） */
+/**
+ * 登录入口：只有这四类身份可以注册。
+ * 学校/年级/班级管理员都是「任命」出来的岗位，用教师入口登录后按岗位显示管理功能。
+ */
 export const ROLE_ENTRANCES = [
   { role: UserRole.STUDENT, label: '学生端', icon: '🎒', desc: '诊断 · 练习 · 提升' },
-  { role: UserRole.TEACHER, label: '教师端', icon: '👩‍🏫', desc: '组卷 · 资源 · 学情' },
+  { role: UserRole.TEACHER, label: '教师端', icon: '👩‍🏫', desc: '组卷 · 资源 · 管理' },
   { role: UserRole.ADMIN, label: '平台管理员', icon: '🛠️', desc: '学校 · 审核 · 数据' },
-  { role: UserRole.SCHOOL_ADMIN, label: '学校管理员', icon: '🏫', desc: '年级 · 人事' },
-  { role: UserRole.GRADE_ADMIN, label: '年级管理员', icon: '🏷️', desc: '班级 · 班主任' },
   { role: UserRole.PARENT, label: '家长端', icon: '👨‍👩‍👦', desc: '远程看学情' },
 ];

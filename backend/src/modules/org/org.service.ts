@@ -8,7 +8,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { randomBytes } from 'crypto';
-import { UserRole } from '@teachstudy/shared';
+import { StaffRole, UserRole } from '@teachstudy/shared';
 import { AuthUser } from '../../common/decorators/current-user.decorator';
 import { ClassMember } from '../classes/entities/class-member.entity';
 import { ClassRoom } from '../classes/entities/class-room.entity';
@@ -16,8 +16,8 @@ import { School } from '../schools/entities/school.entity';
 import { User } from '../users/entities/user.entity';
 import { Grade } from './entities/grade.entity';
 import { Notice } from './entities/notice.entity';
+import { StaffService } from './staff.service';
 import {
-  AppointUserDto,
   CreateGradeDto,
   CreateNoticeDto,
   CreateOrgClassDto,
@@ -34,6 +34,7 @@ export class OrgService {
     @InjectRepository(ClassMember) private readonly members: Repository<ClassMember>,
     @InjectRepository(User) private readonly users: Repository<User>,
     @InjectRepository(Notice) private readonly notices: Repository<Notice>,
+    private readonly staff: StaffService,
   ) {}
 
   // ==================== 学校（平台管理员） ====================
@@ -41,22 +42,27 @@ export class OrgService {
   async listSchools(actor: AuthUser) {
     if (actor.role === UserRole.ADMIN) {
       const list = await this.schools.find({ order: { createdAt: 'ASC' } });
-      return Promise.all(list.map((s) => this.withAdmins(s)));
+      return Promise.all(list.map((s) => this.withSchoolMeta(s)));
     }
-    if (actor.role === UserRole.SCHOOL_ADMIN && actor.schoolId) {
-      const list = await this.schools.find({ where: { id: actor.schoolId } });
-      return Promise.all(list.map((s) => this.withAdmins(s)));
-    }
-    throw new ForbiddenException('无权查看学校列表');
+
+    const scope = await this.schoolIdsOf(actor);
+    if (scope.length === 0) throw new ForbiddenException('无权查看学校列表');
+    const list = await this.schools.find({ where: { id: In(scope) } });
+    return Promise.all(list.map((s) => this.withSchoolMeta(s)));
   }
 
-  private async withAdmins(school: School) {
-    const admins = await this.users.find({
-      where: { schoolId: school.id, role: UserRole.SCHOOL_ADMIN },
-    });
+  private async withSchoolMeta(school: School) {
+    const [admins, gradeCount, classCount] = await Promise.all([
+      this.staff.listAdmins(StaffRole.SCHOOL_ADMIN, school.id),
+      this.grades.count({ where: { schoolId: school.id } }),
+      this.classes.count({ where: { schoolId: school.id } }),
+    ]);
     return {
       ...school,
-      admins: admins.map((u) => ({ id: u.id, username: u.username, name: u.name })),
+      admins,
+      gradeCount,
+      classCount,
+      adminLimit: 2,
     };
   }
 
@@ -80,58 +86,90 @@ export class OrgService {
     return { deleted: true };
   }
 
-  async appointSchoolAdmin(actor: AuthUser, schoolId: string, dto: AppointUserDto) {
-    this.assertPlatform(actor);
+  /** 平台管理员任命学校管理员（只能选教师账号，每校最多 2 名） */
+  async appointSchoolAdmin(actor: AuthUser, schoolId: string, userId: string) {
     await this.schoolOrThrow(schoolId);
-    const user = await this.userByUsername(dto.username);
-    if (user.role === UserRole.ADMIN) {
-      throw new BadRequestException('平台管理员账号不能被任命为学校管理员');
-    }
-    await this.users.update(user.id, {
-      role: UserRole.SCHOOL_ADMIN,
-      schoolId,
-    });
-    return { id: user.id, username: user.username, name: user.name, role: UserRole.SCHOOL_ADMIN };
+    return this.staff.appointSchoolAdmin(actor, schoolId, userId);
   }
 
   async dismissSchoolAdmin(actor: AuthUser, schoolId: string, userId: string) {
-    this.assertPlatform(actor);
-    const user = await this.users.findOne({ where: { id: userId } });
-    if (!user || user.role !== UserRole.SCHOOL_ADMIN || user.schoolId !== schoolId) {
-      throw new NotFoundException('该学校管理员不存在');
-    }
-    await this.users.update(userId, { role: UserRole.TEACHER });
-    return { dismissed: true };
+    await this.schoolOrThrow(schoolId);
+    return this.staff.dismissSchoolAdmin(actor, schoolId, userId);
   }
 
-  // ==================== 年级（学校管理员） ====================
+  /**
+   * 可任命的教师候选。
+   * 平台管理员可看到全部教师（含尚未归属学校的，任命后自动归属该校）；
+   * 学校/年级管理员看到本校教师 + 尚未归属学校的教师。
+   */
+  async listTeachers(actor: AuthUser, schoolId?: string) {
+    if (actor.role === UserRole.ADMIN) {
+      if (!schoolId) {
+        const all = await this.users.find({
+          where: { role: In([UserRole.TEACHER, UserRole.SCHOOL_ADMIN, UserRole.GRADE_ADMIN]) },
+          order: { createdAt: 'ASC' },
+        });
+        const schoolMap = new Map((await this.schools.find()).map((s) => [s.id, s.name]));
+        const apps = all.length
+          ? await this.staff.listAdminsByUsers(all.map((u) => u.id))
+          : new Map<string, string[]>();
+        return all.map((u) => ({
+          id: u.id,
+          username: u.username,
+          name: u.name ?? u.username,
+          schoolId: u.schoolId,
+          schoolName: u.schoolId ? (schoolMap.get(u.schoolId) ?? '') : '',
+          roles: apps.get(u.id) ?? [],
+        }));
+      }
+      return this.staff.eligibleTeachers(schoolId);
+    }
+
+    const scope = await this.schoolIdsOf(actor);
+    const target = schoolId ?? scope[0];
+    if (!target || !scope.includes(target)) throw new ForbiddenException('无权查看该学校教师');
+    return this.staff.eligibleTeachers(target);
+  }
+
+  // ==================== 年级（学校管理员任命年级管理员） ====================
 
   async listGrades(actor: AuthUser, schoolId?: string) {
-    if (actor.role === UserRole.GRADE_ADMIN) {
-      const list = await this.grades.find({ where: { gradeAdminId: actor.id } });
+    // 年级管理员：只看自己管理的年级（可能兼任多个）
+    const staffRoles = actor.staffRoles ?? [];
+    if (staffRoles.includes(StaffRole.GRADE_ADMIN) && actor.role !== UserRole.ADMIN) {
+      const own = await this.staff.contextOf(actor.id);
+      if (own.gradeIds.length === 0) return [];
+      const list = await this.grades.find({
+        where: { id: In(own.gradeIds) },
+        order: { order: 'ASC' },
+      });
       return Promise.all(list.map((g) => this.withGradeMeta(g)));
     }
 
-    const scope =
-      actor.role === UserRole.ADMIN
-        ? schoolId
-          ? { schoolId }
-          : {}
-        : { schoolId: actor.schoolId ?? '__none__' };
+    const scope = await this.schoolIdsOf(actor);
+    const where = schoolId
+      ? scope.includes(schoolId) || actor.role === UserRole.ADMIN
+        ? { schoolId }
+        : { id: '__none__' }
+      : scope.length > 0
+        ? { schoolId: In(scope) }
+        : {};
 
-    const list = await this.grades.find({ where: scope, order: { order: 'ASC' } });
+    const list = await this.grades.find({ where, order: { order: 'ASC' } });
     return Promise.all(list.map((g) => this.withGradeMeta(g)));
   }
 
   private async withGradeMeta(grade: Grade) {
-    const admin = grade.gradeAdminId
-      ? await this.users.findOne({ where: { id: grade.gradeAdminId } })
-      : null;
-    const classCount = await this.classes.count({ where: { gradeId: grade.id } });
+    const [admins, classCount] = await Promise.all([
+      this.staff.listAdmins(StaffRole.GRADE_ADMIN, grade.id),
+      this.classes.count({ where: { gradeId: grade.id } }),
+    ]);
     return {
       ...grade,
-      gradeAdminName: admin?.name ?? admin?.username ?? null,
+      admins,
+      gradeAdminName: admins[0]?.name ?? null,
       classCount,
+      adminLimit: 2,
     };
   }
 
@@ -139,13 +177,13 @@ export class OrgService {
     await this.assertSchoolScope(actor, dto.schoolId);
     const name = dto.name.trim();
 
-    const exists = await this.grades.findOne({
-      where: { schoolId: dto.schoolId, name },
-    });
+    const exists = await this.grades.findOne({ where: { schoolId: dto.schoolId, name } });
     if (exists) throw new ConflictException('该学校已有同名年级');
 
+    // order 按标准 12 年级顺序写入，保证前端下拉顺序稳定
+    const order = STANDARD_GRADES.indexOf(name);
     return this.grades.save(
-      this.grades.create({ schoolId: dto.schoolId, name, order: 0 }),
+      this.grades.create({ schoolId: dto.schoolId, name, order: order < 0 ? 99 : order }),
     );
   }
 
@@ -160,92 +198,78 @@ export class OrgService {
     return { deleted: true };
   }
 
-  async appointGradeAdmin(actor: AuthUser, gradeId: string, dto: AppointUserDto) {
+  async appointGradeAdmin(actor: AuthUser, gradeId: string, userId: string) {
     const grade = await this.gradeOrThrow(gradeId);
-    await this.assertSchoolScope(actor, grade.schoolId);
-
-    const user = await this.userByUsername(dto.username);
-    if (user.role === UserRole.ADMIN) {
-      throw new BadRequestException('平台管理员账号不能被任命为年级管理员');
-    }
-    const other = await this.grades.findOne({ where: { gradeAdminId: user.id } });
-    if (other && other.id !== grade.id) {
-      throw new ConflictException('该账号已是其他年级的管理员，请先卸任');
-    }
-
-    await this.users.update(user.id, {
-      role: UserRole.GRADE_ADMIN,
-      schoolId: grade.schoolId,
-    });
-    await this.grades.update(grade.id, { gradeAdminId: user.id });
-
-    return { id: user.id, username: user.username, name: user.name };
+    return this.staff.appointGradeAdmin(actor, grade, userId);
   }
 
-  async dismissGradeAdmin(actor: AuthUser, gradeId: string) {
+  async dismissGradeAdmin(actor: AuthUser, gradeId: string, userId: string) {
     const grade = await this.gradeOrThrow(gradeId);
-    await this.assertSchoolScope(actor, grade.schoolId);
-    if (!grade.gradeAdminId) throw new BadRequestException('该年级尚未任命管理员');
-
-    await this.users.update(grade.gradeAdminId, { role: UserRole.TEACHER });
-    await this.grades.update(grade.id, { gradeAdminId: null });
-    return { dismissed: true };
+    return this.staff.dismissGradeAdmin(actor, grade, userId);
   }
 
-  // ==================== 班级（年级管理员） ====================
+  // ==================== 班级（年级管理员建班 + 任命班级管理员） ====================
 
   async listClasses(actor: AuthUser, gradeId: string) {
     const grade = await this.assertGradeScope(actor, gradeId);
-    return this.classes.find({
+    const list = await this.classes.find({
       where: { gradeId: grade.id },
       order: { className: 'ASC' },
     });
+    return Promise.all(
+      list.map(async (room) => {
+        const admins = await this.staff.listAdmins(StaffRole.CLASS_ADMIN, room.id);
+        const students = await this.members.count({
+          where: { classId: room.id, status: 'approved' },
+        });
+        return { ...room, admins, studentCount: students, adminLimit: 2 };
+      }),
+    );
   }
 
   async createClass(actor: AuthUser, dto: CreateOrgClassDto) {
     const grade = await this.assertGradeScope(actor, dto.gradeId);
     const className = dto.className.trim();
 
-    const teacher = dto.teacherUsername
-      ? await this.resolveTeacher(dto.teacherUsername)
-      : null;
+    const duplicate = await this.classes.findOne({
+      where: { gradeId: grade.id, className },
+    });
+    if (duplicate) throw new ConflictException(`${grade.name}已有「${className}」`);
 
-    return this.classes.save(
+    const room = await this.classes.save(
       this.classes.create({
         schoolId: grade.schoolId,
         gradeId: grade.id,
         grade: grade.name,
         className,
         name: `${grade.name} ${className}`,
-        teacherId: teacher?.id ?? 'unassigned',
-        teacherName: teacher?.name ?? null,
+        teacherId: 'unassigned',
+        teacherName: null,
         inviteCode: await this.generateInviteCode(),
         status: 'active',
       }),
     );
+
+    // 建班时可顺带指定班级管理员
+    if (dto.teacherUserId) {
+      await this.staff.appointClassAdmin(actor, room, dto.teacherUserId);
+      return this.classOrThrow(room.id);
+    }
+    return room;
   }
 
   async updateClass(actor: AuthUser, id: string, dto: UpdateOrgClassDto) {
     const room = await this.classOrThrow(id);
     await this.assertClassScope(actor, room);
 
-    const patch: Partial<ClassRoom> = {};
     if (dto.className !== undefined && dto.className.trim()) {
-      patch.className = dto.className.trim();
-      patch.name = `${room.grade} ${patch.className}`;
+      const className = dto.className.trim();
+      const patch: Partial<ClassRoom> = {
+        className,
+        name: `${room.grade} ${className}`,
+      };
+      await this.classes.update(id, patch);
     }
-    if (dto.teacherUsername !== undefined) {
-      if (!dto.teacherUsername) {
-        patch.teacherId = 'unassigned';
-        patch.teacherName = null;
-      } else {
-        const teacher = await this.resolveTeacher(dto.teacherUsername);
-        patch.teacherId = teacher.id;
-        patch.teacherName = teacher.name;
-      }
-    }
-
-    await this.classes.update(id, patch);
     return this.classOrThrow(id);
   }
 
@@ -263,26 +287,39 @@ export class OrgService {
     return { deleted: true };
   }
 
-  // ==================== 通知 ====================
+  async appointClassAdmin(actor: AuthUser, classId: string, userId: string) {
+    const room = await this.classOrThrow(classId);
+    return this.staff.appointClassAdmin(actor, room, userId);
+  }
+
+  async dismissClassAdmin(actor: AuthUser, classId: string, userId: string) {
+    const room = await this.classOrThrow(classId);
+    return this.staff.dismissClassAdmin(actor, room, userId);
+  }
+
+  // ==================== 通知（逐级下行） ====================
 
   async createNotice(actor: AuthUser, dto: CreateNoticeDto) {
     const title = dto.title.trim();
     const content = dto.content.trim();
+    const staffRoles = actor.staffRoles ?? [];
 
-    if (actor.role === UserRole.SCHOOL_ADMIN) {
+    // 学校管理员 → 年级管理员
+    if (staffRoles.includes(StaffRole.SCHOOL_ADMIN)) {
       if (dto.toRole !== 'grade_admin' || !dto.gradeId) {
         throw new BadRequestException('学校管理员的通知需指定年级');
       }
       const grade = await this.gradeOrThrow(dto.gradeId);
-      if (grade.schoolId !== actor.schoolId) throw new ForbiddenException('只能通知本校年级');
-
+      if (!(await this.staff.isSchoolAdmin(actor.id, grade.schoolId))) {
+        throw new ForbiddenException('只能通知本校年级');
+      }
       return this.notices.save(
         this.notices.create({
           schoolId: grade.schoolId,
           gradeId: grade.id,
           classId: null,
           fromUserId: actor.id,
-          fromRole: actor.role,
+          fromRole: StaffRole.SCHOOL_ADMIN,
           fromName: actor.name ?? actor.username,
           toRole: 'grade_admin',
           title,
@@ -291,54 +328,70 @@ export class OrgService {
       );
     }
 
-    if (actor.role === UserRole.GRADE_ADMIN) {
-      if (dto.toRole !== 'teacher' || !dto.classId) {
+    // 年级管理员 → 班级管理员
+    if (staffRoles.includes(StaffRole.GRADE_ADMIN)) {
+      if (dto.toRole !== 'class_admin' || !dto.classId) {
         throw new BadRequestException('年级管理员的通知需指定班级');
       }
       const room = await this.classOrThrow(dto.classId);
-      await this.assertClassScope(actor, room);
-
+      if (!room.gradeId) throw new BadRequestException('该班级尚未归属年级');
+      await this.assertGradeScope(actor, room.gradeId);
       return this.notices.save(
         this.notices.create({
           schoolId: room.schoolId,
           gradeId: room.gradeId,
           classId: room.id,
           fromUserId: actor.id,
-          fromRole: actor.role,
+          fromRole: StaffRole.GRADE_ADMIN,
           fromName: actor.name ?? actor.username,
-          toRole: 'teacher',
+          toRole: 'class_admin',
           title,
           content,
         }),
       );
     }
 
-    throw new ForbiddenException('当前角色不能下发通知');
+    throw new ForbiddenException('当前岗位不能下发通知');
   }
 
-  /** 收件箱：年级管理员看发给本年级的；班主任看发给本班的 */
+  /** 收件箱：年级管理员看发给本年级的；班级管理员看发给本班的 */
   async inbox(actor: AuthUser) {
-    if (actor.role === UserRole.GRADE_ADMIN) {
-      const grades = await this.grades.find({ where: { gradeAdminId: actor.id } });
-      if (grades.length === 0) return [];
-      return this.notices.find({
-        where: { toRole: 'grade_admin', gradeId: In(grades.map((g) => g.id)) },
-        order: { createdAt: 'DESC' },
-        take: 100,
-      });
+    const ctx = await this.staff.contextOf(actor.id);
+    const results: Notice[] = [];
+
+    if (ctx.gradeIds.length > 0) {
+      results.push(
+        ...(await this.notices.find({
+          where: { toRole: 'grade_admin', gradeId: In(ctx.gradeIds) },
+          order: { createdAt: 'DESC' },
+          take: 100,
+        })),
+      );
     }
 
-    if (actor.role === UserRole.TEACHER) {
-      const rooms = await this.classes.find({ where: { teacherId: actor.id } });
-      if (rooms.length === 0) return [];
-      return this.notices.find({
-        where: { toRole: 'teacher', classId: In(rooms.map((r) => r.id)) },
-        order: { createdAt: 'DESC' },
-        take: 100,
-      });
+    if (ctx.classIds.length > 0) {
+      results.push(
+        ...(await this.notices.find({
+          where: { toRole: 'class_admin', classId: In(ctx.classIds) },
+          order: { createdAt: 'DESC' },
+          take: 100,
+        })),
+      );
     }
 
-    return [];
+    // 兼容历史数据：旧版本发给 teacher 的通知
+    const rooms = await this.classes.find({ where: { teacherId: actor.id } });
+    if (rooms.length > 0) {
+      results.push(
+        ...(await this.notices.find({
+          where: { toRole: 'teacher', classId: In(rooms.map((r) => r.id)) },
+          order: { createdAt: 'DESC' },
+          take: 100,
+        })),
+      );
+    }
+
+    return results.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, 100);
   }
 
   /** 我发出的通知 */
@@ -352,33 +405,38 @@ export class OrgService {
 
   // ==================== 权限与工具 ====================
 
+  /** 当前用户的学校范围：平台管理员=全部（返回空表示"不限"），其余按岗位 */
+  private async schoolIdsOf(actor: AuthUser): Promise<string[]> {
+    if (actor.role === UserRole.ADMIN) return [];
+    const ctx = await this.staff.contextOf(actor.id);
+    const ids = new Set(ctx.schoolIds);
+    if (actor.schoolId) ids.add(actor.schoolId);
+    return [...ids];
+  }
+
   private assertPlatform(actor: AuthUser): void {
-    if (actor.role !== UserRole.ADMIN) {
-      throw new ForbiddenException('仅平台管理员可操作');
-    }
+    if (actor.role !== UserRole.ADMIN) throw new ForbiddenException('仅平台管理员可操作');
   }
 
   private async assertSchoolScope(actor: AuthUser, schoolId: string): Promise<void> {
     if (actor.role === UserRole.ADMIN) return;
-    if (actor.role === UserRole.SCHOOL_ADMIN && actor.schoolId === schoolId) return;
+    if (await this.staff.isSchoolAdmin(actor.id, schoolId)) return;
     throw new ForbiddenException('无权管理该学校');
   }
 
   private async assertGradeScope(actor: AuthUser, gradeId: string): Promise<Grade> {
     const grade = await this.gradeOrThrow(gradeId);
     if (actor.role === UserRole.ADMIN) return grade;
-    if (actor.role === UserRole.SCHOOL_ADMIN && actor.schoolId === grade.schoolId) return grade;
-    if (actor.role === UserRole.GRADE_ADMIN && grade.gradeAdminId === actor.id) return grade;
+    if (await this.staff.isSchoolAdmin(actor.id, grade.schoolId)) return grade;
+    if (await this.staff.isGradeAdmin(actor.id, grade.id)) return grade;
     throw new ForbiddenException('无权管理该年级');
   }
 
   private async assertClassScope(actor: AuthUser, room: ClassRoom): Promise<void> {
     if (actor.role === UserRole.ADMIN) return;
-    if (actor.role === UserRole.SCHOOL_ADMIN && actor.schoolId === room.schoolId) return;
-    if (actor.role === UserRole.GRADE_ADMIN && room.gradeId) {
-      const grade = await this.grades.findOne({ where: { id: room.gradeId } });
-      if (grade?.gradeAdminId === actor.id) return;
-    }
+    if (await this.staff.isSchoolAdmin(actor.id, room.schoolId)) return;
+    if (room.gradeId && (await this.staff.isGradeAdmin(actor.id, room.gradeId))) return;
+    if (await this.staff.isClassAdmin(actor.id, room.id)) return;
     throw new ForbiddenException('无权管理该班级');
   }
 
@@ -400,20 +458,6 @@ export class OrgService {
     return room;
   }
 
-  private async userByUsername(username: string): Promise<User> {
-    const user = await this.users.findOne({ where: { username: username.trim() } });
-    if (!user) throw new NotFoundException('账号不存在');
-    return user;
-  }
-
-  private async resolveTeacher(username: string): Promise<User> {
-    const user = await this.userByUsername(username);
-    if (user.role !== UserRole.TEACHER) {
-      throw new BadRequestException('班主任必须是教师账号');
-    }
-    return user;
-  }
-
   private async generateInviteCode(): Promise<string> {
     for (let i = 0; i < 10; i += 1) {
       const code = randomBytes(4).toString('hex').toUpperCase();
@@ -423,3 +467,19 @@ export class OrgService {
     throw new ConflictException('邀请码生成失败，请重试');
   }
 }
+
+/** 标准 12 个年级：小学 6 + 初中 3 + 高中 3 */
+export const STANDARD_GRADES = [
+  '一年级',
+  '二年级',
+  '三年级',
+  '四年级',
+  '五年级',
+  '六年级',
+  '七年级',
+  '八年级',
+  '九年级',
+  '高一',
+  '高二',
+  '高三',
+];

@@ -18,6 +18,33 @@ export enum UserRole {
   GRADE_ADMIN = 'grade_admin',
 }
 
+/**
+ * 任命制岗位：全部由上级任命产生，不通过注册获得。
+ * 一个教师可以同时担任多个岗位（如年级管理员兼任某班班级管理员）。
+ */
+export enum StaffRole {
+  /** 学校管理员：平台管理员从教师中任命，每校最多 2 名 */
+  SCHOOL_ADMIN = 'school_admin',
+  /** 年级管理员：学校管理员任命，每校每年级最多 2 名 */
+  GRADE_ADMIN = 'grade_admin',
+  /** 班级管理员（班主任）：年级管理员任命，每班最多 2 名 */
+  CLASS_ADMIN = 'class_admin',
+}
+
+/** 各岗位名额上限（任一侧满额即拒绝） */
+export const STAFF_LIMITS: Record<StaffRole, number> = {
+  [StaffRole.SCHOOL_ADMIN]: 2,
+  [StaffRole.GRADE_ADMIN]: 2,
+  [StaffRole.CLASS_ADMIN]: 2,
+};
+
+/** 岗位中文名 */
+export const STAFF_ROLE_LABELS: Record<StaffRole, string> = {
+  [StaffRole.SCHOOL_ADMIN]: '学校管理员',
+  [StaffRole.GRADE_ADMIN]: '年级管理员',
+  [StaffRole.CLASS_ADMIN]: '班级管理员（班主任）',
+};
+
 /** 学段：小学 / 初中 / 高中 */
 export enum StudyStage {
   PRIMARY_HIGH = 'primary_high',

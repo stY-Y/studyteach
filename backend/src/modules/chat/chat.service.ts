@@ -63,16 +63,14 @@ export class ChatService {
   private async assertAccess(actor: AuthUser, room: ClassRoom): Promise<void> {
     if (actor.role === UserRole.ADMIN) return;
 
-    if (actor.role === UserRole.TEACHER) {
-      if (await this.classes.canManage(actor, room.id)) return;
-      throw new ForbiddenException('只有该班创建教师可以进入班级聊天');
-    }
+    // 班级管理员（可多名、可兼任年级管理员）、该年级年级管理员、本校学校管理员
+    if (await this.classes.canManage(actor, room.id)) return;
 
     if (actor.role === UserRole.STUDENT) {
       if (await this.classes.isApprovedMember(actor.id, room.id)) return;
       throw new ForbiddenException('你的入班申请尚未通过，暂不能使用班级聊天');
     }
 
-    throw new ForbiddenException('家长账号暂不支持班级聊天');
+    throw new ForbiddenException('只有本班的班级管理员可以进入班级聊天');
   }
 }

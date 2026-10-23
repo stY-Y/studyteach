@@ -8,11 +8,12 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { randomBytes, scryptSync, timingSafeEqual } from 'crypto';
-import { UserRole } from '@teachstudy/shared';
+import { StaffRole, UserRole } from '@teachstudy/shared';
 import { User } from './entities/user.entity';
 import { StudentProfile } from './entities/student-profile.entity';
 import { TeacherProfile } from './entities/teacher-profile.entity';
 import { ParentStudentLink } from './entities/parent-student-link.entity';
+import { StaffAppointment } from '../org/entities/staff-appointment.entity';
 import {
   ChangePasswordDto,
   CreateUserDto,
@@ -60,6 +61,11 @@ export interface SafeMeView {
   updatedAt: Date;
   studentProfile?: StudentProfile | null;
   teacherProfile?: TeacherProfile | null;
+  /** 任命制岗位 */
+  staffRoles?: string[];
+  classIds?: string[];
+  gradeIds?: string[];
+  schoolIds?: string[];
 }
 
 @Injectable()
@@ -72,9 +78,37 @@ export class UsersService {
     private readonly teacherProfiles: Repository<TeacherProfile>,
     @InjectRepository(ParentStudentLink)
     private readonly links: Repository<ParentStudentLink>,
+    @InjectRepository(StaffAppointment)
+    private readonly appointments: Repository<StaffAppointment>,
     private readonly crypto: CryptoService,
     private readonly dataSource: DataSource,
   ) {}
+
+  /**
+   * 岗位上下文：随请求下发，前端据此显示管理入口。
+   * 每次请求都查库，保证任命/卸任后即时生效（不必等 JWT 过期）。
+   */
+  async staffContext(userId: string): Promise<{
+    staffRoles: string[];
+    classIds: string[];
+    gradeIds: string[];
+    schoolIds: string[];
+  }> {
+    const list = await this.appointments.find({ where: { userId } });
+    return {
+      staffRoles: list.map((a) => a.role),
+      // 按岗位区分范围，避免「班级管理员任职的年级」被误当成年级管理员范围
+      classIds: list
+        .filter((a) => a.role === StaffRole.CLASS_ADMIN && a.classId)
+        .map((a) => a.classId as string),
+      gradeIds: list
+        .filter((a) => a.role === StaffRole.GRADE_ADMIN && a.gradeId)
+        .map((a) => a.gradeId as string),
+      schoolIds: list
+        .filter((a) => a.role === StaffRole.SCHOOL_ADMIN)
+        .map((a) => a.schoolId),
+    };
+  }
 
   // ---------- 密码（Node 原生 scrypt，无额外原生依赖） ----------
   hashPassword(plain: string): string {
@@ -385,8 +419,12 @@ export class UsersService {
     if (!base) return null;
     const studentProfile =
       base.role === UserRole.STUDENT ? await this.getStudentProfileView(userId) : null;
+    // 教师被任命为管理员后 role 会变成 school_admin / grade_admin，仍应返回教师档案
     const teacherProfile =
-      base.role === UserRole.TEACHER ? await this.getTeacherProfile(userId) : null;
+      base.role !== UserRole.STUDENT && base.role !== UserRole.PARENT
+        ? await this.getTeacherProfile(userId)
+        : null;
+    const staff = await this.staffContext(userId);
     return {
       id: base.id,
       username: base.username,
@@ -399,6 +437,10 @@ export class UsersService {
       updatedAt: base.updatedAt,
       studentProfile,
       teacherProfile,
+      staffRoles: staff.staffRoles,
+      classIds: staff.classIds,
+      gradeIds: staff.gradeIds,
+      schoolIds: staff.schoolIds,
     };
   }
 }

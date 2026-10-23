@@ -7,6 +7,14 @@ export interface AuthUser {
   username: string;
   schoolId?: string | null;
   name?: string;
+  /** 任命制岗位（school_admin / grade_admin / class_admin），可多个 */
+  staffRoles?: string[];
+  /** 担任班级管理员的班级 id */
+  classIds?: string[];
+  /** 担任年级管理员的年级 id */
+  gradeIds?: string[];
+  /** 担任学校管理员的学校 id */
+  schoolIds?: string[];
 }
 
 /** 从请求上下文提取当前登录用户 */

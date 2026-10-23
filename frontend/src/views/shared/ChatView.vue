@@ -162,7 +162,10 @@ onUnmounted(() => {
             >
               <div class="message-head">
                 <span class="sender">{{ m.senderName || '同学' }}</span>
-                <span v-if="m.senderRole === UserRole.TEACHER" class="badge badge-primary">老师</span>
+                <span
+                  v-if="['teacher', 'school_admin', 'grade_admin', 'class_admin'].includes(m.senderRole)"
+                  class="badge badge-primary"
+                >老师</span>
                 <span class="time">{{ formatTime(m.createdAt) }}</span>
               </div>
               <p class="bubble">{{ m.content }}</p>

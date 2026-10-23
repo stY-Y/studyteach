@@ -30,8 +30,10 @@ import { ClassRoom } from '../src/modules/classes/entities/class-room.entity';
 import { ClassMember } from '../src/modules/classes/entities/class-member.entity';
 import { StudentProfile } from '../src/modules/users/entities/student-profile.entity';
 import { Grade } from '../src/modules/org/entities/grade.entity';
+import { StaffAppointment } from '../src/modules/org/entities/staff-appointment.entity';
+import { StaffService } from '../src/modules/org/staff.service';
 import { StorageService } from '../src/infra/storage/storage.service';
-import { ResourceStatus, StudyStage } from '@teachstudy/shared';
+import { ResourceStatus, StaffRole, StudyStage } from '@teachstudy/shared';
 
 import {
   SEED_COLLEGES,
@@ -518,41 +520,115 @@ async function seedUsers(app: INestApplicationContext): Promise<void> {
   }
 }
 
+/** 标准 12 个年级：小学 6 + 初中 3 + 高中 3 */
+const STANDARD_GRADES = [
+  '一年级',
+  '二年级',
+  '三年级',
+  '四年级',
+  '五年级',
+  '六年级',
+  '七年级',
+  '八年级',
+  '九年级',
+  '高一',
+  '高二',
+  '高三',
+];
+
+/** 幂等写入一条任命（不使用 actor 校验，直接落库，用于演示数据） */
+async function ensureAppointment(
+  ds: DataSource,
+  data: {
+    userId: string;
+    role: StaffRole;
+    scopeId: string;
+    schoolId: string;
+    gradeId?: string | null;
+    classId?: string | null;
+    appointedBy?: string | null;
+  },
+): Promise<boolean> {
+  const repo = ds.getRepository(StaffAppointment);
+  const exists = await repo.findOne({
+    where: { userId: data.userId, role: data.role, scopeId: data.scopeId },
+  });
+  if (exists) return false;
+  await repo.save(
+    repo.create({
+      userId: data.userId,
+      role: data.role,
+      scopeId: data.scopeId,
+      schoolId: data.schoolId,
+      gradeId: data.gradeId ?? null,
+      classId: data.classId ?? null,
+      appointedBy: data.appointedBy ?? null,
+    }),
+  );
+  return true;
+}
+
 /**
- * 演示组织架构：学校下建「七年级」「八年级」，年级管理员管理八年级。
- * 平台管理员 → 学校管理员 → 年级管理员 → 班主任 的演示链路因此开箱可用。
+ * 演示组织架构：学校下建满 12 个年级（小学 6 + 初中 3 + 高中 3），
+ * 并演示「平台 → 学校管理员 → 年级管理员」的任命链路。
  */
 async function seedOrg(ds: DataSource, app: INestApplicationContext): Promise<void> {
   const usersService = app.get(UsersService);
+  const staff = app.get(StaffService);
   const grades = ds.getRepository(Grade);
+
+  const schoolAdmin = await usersService.findByUsername('schooladmin');
   const gradeAdmin = await usersService.findByUsername('gradeadmin');
 
-  const seedGrades: Array<{ name: string; adminId: string | null }> = [
-    { name: '七年级', adminId: null },
-    { name: '八年级', adminId: gradeAdmin?.id ?? null },
-  ];
-
-  for (const item of seedGrades) {
-    const exists = await grades.findOne({
-      where: { schoolId: SEED_SCHOOL_ID, name: item.name },
-    });
+  let created = 0;
+  for (let i = 0; i < STANDARD_GRADES.length; i += 1) {
+    const name = STANDARD_GRADES[i];
+    const exists = await grades.findOne({ where: { schoolId: SEED_SCHOOL_ID, name } });
     if (exists) {
-      if (item.adminId && !exists.gradeAdminId) {
-        await grades.update(exists.id, { gradeAdminId: item.adminId });
-      }
+      if (exists.order !== i) await grades.update(exists.id, { order: i });
       continue;
     }
-    await grades.save(
-      grades.create({
-        schoolId: SEED_SCHOOL_ID,
-        name: item.name,
-        order: item.name === '七年级' ? 1 : 2,
-        gradeAdminId: item.adminId,
-      }),
-    );
+    await grades.save(grades.create({ schoolId: SEED_SCHOOL_ID, name, order: i }));
+    created += 1;
+  }
+  if (created > 0) console.log(`  已创建 ${created} 个标准年级（小学 6 + 初中 3 + 高中 3）`);
+
+  const gradeEight = await grades.findOne({
+    where: { schoolId: SEED_SCHOOL_ID, name: '八年级' },
+  });
+
+  // 平台管理员任命学校管理员（每校最多 2 名）
+  if (schoolAdmin) {
+    const added = await ensureAppointment(ds, {
+      userId: schoolAdmin.id,
+      role: StaffRole.SCHOOL_ADMIN,
+      scopeId: SEED_SCHOOL_ID,
+      schoolId: SEED_SCHOOL_ID,
+    });
+    if (added) console.log('  任命 schooladmin 为学校管理员');
   }
 
-  console.log('  演示组织：七年级 / 八年级（年级管理员 gradeadmin 管理八年级）\n');
+  // 学校管理员任命年级管理员（每校每年级最多 2 名）
+  if (gradeAdmin && gradeEight) {
+    const added = await ensureAppointment(ds, {
+      userId: gradeAdmin.id,
+      role: StaffRole.GRADE_ADMIN,
+      scopeId: gradeEight.id,
+      schoolId: SEED_SCHOOL_ID,
+      gradeId: gradeEight.id,
+      appointedBy: schoolAdmin?.id ?? null,
+    });
+    if (added) console.log('  任命 gradeadmin 为八年级管理员');
+    if (!gradeEight.gradeAdminId) {
+      await grades.update(gradeEight.id, { gradeAdminId: gradeAdmin.id });
+    }
+  }
+
+  for (const id of [schoolAdmin?.id, gradeAdmin?.id]) {
+    if (id) await staff.recalcRole(id);
+  }
+
+  console.log('  演示组织：12 个年级 + 学校管理员 1 名 + 八年级管理员 1 名\n');
 }
 
 /**
@@ -589,6 +665,19 @@ async function seedDemoClass(ds: DataSource, app: INestApplicationContext): Prom
   } else if (!room.gradeId && gradeEight) {
     await rooms.update(room.id, { gradeId: gradeEight.id });
   }
+
+  // 年级管理员任命班级管理员（每班最多 2 名；教师可同时兼任年级管理员）
+  const staff = app.get(StaffService);
+  const appointed = await ensureAppointment(ds, {
+    userId: teacher.id,
+    role: StaffRole.CLASS_ADMIN,
+    scopeId: room.id,
+    schoolId: room.schoolId,
+    gradeId: room.gradeId,
+    classId: room.id,
+  });
+  if (appointed) console.log('  任命 teacher 为「八年级 2 班」班级管理员\n');
+  await staff.recalcRole(teacher.id);
 
   const members = ds.getRepository(ClassMember);
   const exists = await members.findOne({

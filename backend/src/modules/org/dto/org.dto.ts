@@ -21,12 +21,12 @@ export class CreateSchoolDto {
   region?: string;
 }
 
-/** 任命/指定某个已存在账号（按用户名） */
-export class AppointUserDto {
-  @ApiProperty({ description: '目标账号的用户名' })
+/** 任命某个已存在的教师账号（按用户 id） */
+export class AppointStaffDto {
+  @ApiProperty({ description: '被任命的教师用户 id' })
   @IsString()
   @IsNotEmpty()
-  username: string;
+  userId: string;
 }
 
 export class CreateGradeDto {
@@ -35,7 +35,7 @@ export class CreateGradeDto {
   @IsNotEmpty()
   schoolId: string;
 
-  @ApiProperty({ description: '年级名（规范写法，如 八年级）' })
+  @ApiProperty({ description: '年级名（12 个标准年级之一，如 八年级 / 高一）' })
   @IsString()
   @IsNotEmpty()
   @MaxLength(32)
@@ -54,10 +54,10 @@ export class CreateOrgClassDto {
   @MaxLength(64)
   className: string;
 
-  @ApiPropertyOptional({ description: '班主任账号（可稍后任命）' })
+  @ApiPropertyOptional({ description: '同时任命为班级管理员的教师 id（可稍后任命）' })
   @IsOptional()
   @IsString()
-  teacherUsername?: string;
+  teacherUserId?: string;
 }
 
 export class UpdateOrgClassDto {
@@ -66,24 +66,24 @@ export class UpdateOrgClassDto {
   @IsString()
   @MaxLength(64)
   className?: string;
-
-  @ApiPropertyOptional({ description: '班主任账号（传空字符串表示卸任）' })
-  @IsOptional()
-  @IsString()
-  teacherUsername?: string;
 }
 
 export class CreateNoticeDto {
-  @ApiProperty({ enum: ['grade_admin', 'teacher'], description: '下发给谁' })
-  @IsIn(['grade_admin', 'teacher'], { message: '通知对象只能是年级管理员或班主任' })
-  toRole: 'grade_admin' | 'teacher';
+  @ApiProperty({
+    enum: ['grade_admin', 'class_admin'],
+    description: '下发给谁：学校管理员发年级管理员，年级管理员发班级管理员',
+  })
+  @IsIn(['grade_admin', 'class_admin'], {
+    message: '通知对象只能是年级管理员或班级管理员',
+  })
+  toRole: 'grade_admin' | 'class_admin';
 
   @ApiPropertyOptional({ description: '目标年级 id（发给年级管理员时必填）' })
   @IsOptional()
   @IsString()
   gradeId?: string;
 
-  @ApiPropertyOptional({ description: '目标班级 id（发给班主任时必填）' })
+  @ApiPropertyOptional({ description: '目标班级 id（发给班级管理员时必填）' })
   @IsOptional()
   @IsString()
   classId?: string;

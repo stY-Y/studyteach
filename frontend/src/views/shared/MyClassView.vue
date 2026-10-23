@@ -326,7 +326,9 @@ onUnmounted(stopPoll);
 
       <section class="card stack">
         <h2 class="section-title">我管理的班级（{{ mine.teacher.length }}）</h2>
-        <p v-if="mine.teacher.length === 0" class="empty">还没有创建班级。</p>
+        <p v-if="mine.teacher.length === 0" class="empty">
+          还没有班级。被年级管理员任命为班级管理员（班主任）后，班级会自动出现在这里。
+        </p>
 
         <div v-for="c in mine.teacher" :key="c.id" class="class-block">
           <div class="row-item">

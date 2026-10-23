@@ -130,7 +130,7 @@ const router = createRouter({
           component: () => import('../views/shared/MyClassView.vue'),
           meta: {
             title: '我的班级',
-            roles: [UserRole.STUDENT, UserRole.TEACHER, UserRole.ADMIN],
+            roles: [UserRole.STUDENT, UserRole.TEACHER, UserRole.SCHOOL_ADMIN, UserRole.GRADE_ADMIN, UserRole.ADMIN],
           },
         },
         {
@@ -140,7 +140,7 @@ const router = createRouter({
           component: () => import('../views/shared/HomeworkView.vue'),
           meta: {
             title: '作业',
-            roles: [UserRole.STUDENT, UserRole.TEACHER, UserRole.ADMIN],
+            roles: [UserRole.STUDENT, UserRole.TEACHER, UserRole.SCHOOL_ADMIN, UserRole.GRADE_ADMIN, UserRole.ADMIN],
           },
         },
         {
@@ -150,7 +150,7 @@ const router = createRouter({
           component: () => import('../views/shared/ParentChatView.vue'),
           meta: {
             title: '与老师沟通',
-            roles: [UserRole.PARENT, UserRole.TEACHER, UserRole.ADMIN],
+            roles: [UserRole.PARENT, UserRole.TEACHER, UserRole.SCHOOL_ADMIN, UserRole.GRADE_ADMIN, UserRole.ADMIN],
           },
         },
         {
@@ -169,14 +169,14 @@ const router = createRouter({
           path: 'resources',
           name: 'resources',
           component: () => import('../views/student/ResourcesView.vue'),
-          meta: { title: '学习资源', roles: [UserRole.STUDENT, UserRole.TEACHER, UserRole.ADMIN] },
+          meta: { title: '学习资源', roles: [UserRole.STUDENT, UserRole.TEACHER, UserRole.SCHOOL_ADMIN, UserRole.GRADE_ADMIN, UserRole.ADMIN] },
         },
         {
           // 教师端 · 我的资源（必须在 resources 之后声明，避免路径歧义）
           path: 'resources/mine',
           name: 'myResources',
           component: () => import('../views/teacher/MyResourcesView.vue'),
-          meta: { title: '我的资源', roles: [UserRole.TEACHER, UserRole.ADMIN] },
+          meta: { title: '我的资源', roles: [UserRole.TEACHER, UserRole.SCHOOL_ADMIN, UserRole.GRADE_ADMIN, UserRole.ADMIN] },
         },
         {
           // 学生端 · 离线缓存
@@ -211,35 +211,35 @@ const router = createRouter({
           path: 'papers',
           name: 'papers',
           component: () => import('../views/teacher/PaperView.vue'),
-          meta: { title: '智能组卷', roles: [UserRole.TEACHER, UserRole.ADMIN] },
+          meta: { title: '智能组卷', roles: [UserRole.TEACHER, UserRole.SCHOOL_ADMIN, UserRole.GRADE_ADMIN, UserRole.ADMIN] },
         },
         {
           // 教师端 · 学情查看（已实现界面：选学生 → 看学情报表）
           path: 'students',
           name: 'students',
           component: () => import('../views/teacher/StudentReportView.vue'),
-          meta: { title: '学情查看', roles: [UserRole.TEACHER, UserRole.ADMIN] },
+          meta: { title: '学情查看', roles: [UserRole.TEACHER, UserRole.SCHOOL_ADMIN, UserRole.GRADE_ADMIN, UserRole.ADMIN] },
         },
         {
           // 教师端 · 题库管理
           path: 'questions',
           name: 'questions',
           component: () => import('../views/teacher/QuestionBankView.vue'),
-          meta: { title: '题库管理', roles: [UserRole.TEACHER, UserRole.ADMIN] },
+          meta: { title: '题库管理', roles: [UserRole.TEACHER, UserRole.SCHOOL_ADMIN, UserRole.GRADE_ADMIN, UserRole.ADMIN] },
         },
         {
           // 教师端 · 资源上传
           path: 'upload',
           name: 'upload',
           component: () => import('../views/teacher/ResourceUploadView.vue'),
-          meta: { title: '资源上传', roles: [UserRole.TEACHER, UserRole.ADMIN] },
+          meta: { title: '资源上传', roles: [UserRole.TEACHER, UserRole.SCHOOL_ADMIN, UserRole.GRADE_ADMIN, UserRole.ADMIN] },
         },
         {
           // 教师/管理员共用 · 知识图谱（查看 + 新增）
           path: 'knowledge',
           name: 'knowledge',
           component: () => import('../views/shared/KnowledgeTreeView.vue'),
-          meta: { title: '知识图谱', roles: [UserRole.TEACHER, UserRole.ADMIN] },
+          meta: { title: '知识图谱', roles: [UserRole.TEACHER, UserRole.SCHOOL_ADMIN, UserRole.GRADE_ADMIN, UserRole.ADMIN] },
         },
         {
           // 管理员 · 用户管理
@@ -260,7 +260,7 @@ const router = createRouter({
           path: 'review',
           name: 'review',
           component: () => import('../views/admin/ResourceReviewView.vue'),
-          meta: { title: '资源复核', roles: [UserRole.TEACHER, UserRole.ADMIN] },
+          meta: { title: '资源复核', roles: [UserRole.TEACHER, UserRole.SCHOOL_ADMIN, UserRole.GRADE_ADMIN, UserRole.ADMIN] },
         },
         {
           // 尚未实现界面的模块统一走占位页

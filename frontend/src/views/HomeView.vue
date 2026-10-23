@@ -5,6 +5,7 @@ import { systemApi, type HealthResult } from '../api/auth';
 import { usersApi } from '../api/users';
 import ModuleCard from '../components/ModuleCard.vue';
 import { ROLE_CONFIG } from '../config/modules';
+import { hasStaff, isManagerRole, isStaff, staffLabelOf } from '../config/staff';
 import { useAuthStore } from '../stores/auth';
 import { isOnline, offline } from '../utils/offline';
 
@@ -12,16 +13,26 @@ const auth = useAuthStore();
 
 const roleConfig = computed(() => (auth.user ? ROLE_CONFIG[auth.user.role] : null));
 
+/** 我的岗位文案（普通教师 / 年级管理员 · 班级管理员…） */
+const myStaffLabel = computed(() => (auth.user?.role === UserRole.TEACHER || isManagerRole(auth.user?.role ?? '') ? staffLabelOf(auth.user) : ''));
+
 /** 家长已绑定的孩子数量：未绑定时隐藏学情/报表/沟通入口 */
 const childCount = ref<number | null>(null);
 
 const modules = computed(() => {
-  const list = roleConfig.value?.modules ?? [];
-  if (auth.user?.role === UserRole.PARENT) {
+  if (!auth.user) return [];
+
+  // 管理岗位由「教师 + 任命岗位」叠加而成：基础功能保留教师那套
+  const baseRole = isManagerRole(auth.user.role) ? UserRole.TEACHER : auth.user.role;
+  const base = ROLE_CONFIG[baseRole] ?? roleConfig.value;
+  let list = base?.modules ?? [];
+
+  // 需任命岗位的模块：未担任该岗位时隐藏
+  list = list.filter((m) => !m.staff || hasStaff(auth.user, m.staff));
+
+  if (auth.user.role === UserRole.PARENT && (childCount.value ?? 0) === 0) {
     // 未绑定（或还在加载）时只保留「绑定学生」与「账号与安全」
-    if ((childCount.value ?? 0) === 0) {
-      return list.filter((m) => m.key === 'link' || m.key === 'settings');
-    }
+    list = list.filter((m) => m.key === 'link' || m.key === 'settings');
   }
   return list;
 });
@@ -83,6 +94,7 @@ onMounted(async () => {
       <div class="head-text">
         <h1 class="page-title">{{ greeting }}，{{ roleConfig?.label }}工作台</h1>
         <p class="text-sm text-soft">{{ roleConfig?.tagline }}</p>
+        <p v-if="myStaffLabel" class="text-xs text-faint">当前岗位：{{ myStaffLabel }}</p>
       </div>
       <span class="badge badge-primary">{{ auth.displayName }}</span>
     </section>
@@ -124,6 +136,11 @@ onMounted(async () => {
 
       <p v-if="auth.user?.role === UserRole.PARENT && (childCount ?? 0) === 0" class="alert alert-info">
         还没有绑定孩子。绑定成功后，才会出现「孩子学情」「学情报表」「与老师沟通」。
+      </p>
+
+      <p v-if="auth.user?.role === UserRole.TEACHER && !isStaff(auth.user)" class="alert alert-info">
+        你还没有被任命管理岗位。组卷、题库、资源上传等功能可直接使用；
+        如需管理年级或班级，请等待学校管理员 / 年级管理员任命。
       </p>
 
       <div v-if="roleConfig" class="grid grid-gap">

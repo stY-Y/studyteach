@@ -6,9 +6,13 @@ import { ClassRoom } from './entities/class-room.entity';
 import { ClassMember } from './entities/class-member.entity';
 import { ClassesService } from './classes.service';
 import { ClassesController } from './classes.controller';
+import { OrgModule } from '../org/org.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([ClassRoom, ClassMember, StudentProfile, User])],
+  imports: [
+    TypeOrmModule.forFeature([ClassRoom, ClassMember, StudentProfile, User]),
+    OrgModule,
+  ],
   controllers: [ClassesController],
   providers: [ClassesService],
   exports: [ClassesService, TypeOrmModule],

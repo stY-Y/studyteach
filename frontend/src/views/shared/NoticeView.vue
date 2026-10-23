@@ -26,7 +26,7 @@ function formatTime(value: string): string {
 function roleLabel(role: string): string {
   if (role === UserRole.SCHOOL_ADMIN) return '学校管理员';
   if (role === UserRole.GRADE_ADMIN) return '年级管理员';
-  if (role === UserRole.TEACHER) return '班主任';
+  if (role === UserRole.TEACHER || role === 'class_admin') return '班主任';
   return '平台';
 }
 

@@ -15,6 +15,7 @@ import { User } from '../users/entities/user.entity';
 import { ClassRoom } from './entities/class-room.entity';
 import { ClassMember } from './entities/class-member.entity';
 import { CreateClassDto } from './dto/class.dto';
+import { StaffService } from '../org/staff.service';
 
 /** 带统计的班级（教师视图） */
 export type ClassWithCounts = ClassRoom & { memberCount: number; pendingCount: number };
@@ -38,35 +39,37 @@ export class ClassesService {
     private readonly profiles: Repository<StudentProfile>,
     @InjectRepository(User)
     private readonly users: Repository<User>,
+    private readonly staff: StaffService,
   ) {}
 
-  // ---------- 教师：创建与管理 ----------
+  // ---------- 班级管理（任命制） ----------
 
-  /** 教师创建班级（自动生成邀请码）；教师只能为本校建班 */
-  async create(actor: AuthUser, dto: CreateClassDto): Promise<ClassRoom> {
-    if (actor.role === UserRole.TEACHER && (!actor.schoolId || actor.schoolId !== dto.schoolId)) {
-      throw new ForbiddenException('只能为本校创建班级');
-    }
-
-    const room = this.rooms.create({
-      schoolId: dto.schoolId,
-      grade: dto.grade.trim(),
-      className: dto.className.trim(),
-      name: dto.name?.trim() || `${dto.grade.trim()} ${dto.className.trim()}`,
-      teacherId: actor.id,
-      teacherName: actor.name ?? actor.username,
-      inviteCode: await this.generateInviteCode(),
-      status: 'active',
-    });
-    return this.rooms.save(room);
+  /**
+   * 建班统一由年级管理员在「班级管理」中完成（org 模块）。
+   * 这里保留方法只为给出明确指引，避免旧入口静默失败。
+   */
+  async create(_actor: AuthUser, _dto: CreateClassDto): Promise<ClassRoom> {
+    throw new ForbiddenException('班级由年级管理员在「班级管理」中统一创建');
   }
 
-  /** 我创建的班级（教师/管理员），附已通过人数与待审人数 */
+  /** 我担任班级管理员的班级（含兼任与历史数据），附已通过人数与待审人数 */
   async listManaged(actor: AuthUser): Promise<ClassWithCounts[]> {
-    const rooms =
-      actor.role === UserRole.ADMIN
-        ? await this.rooms.find({ order: { createdAt: 'DESC' } })
-        : await this.rooms.find({ where: { teacherId: actor.id }, order: { createdAt: 'DESC' } });
+    let rooms: ClassRoom[];
+
+    if (actor.role === UserRole.ADMIN) {
+      rooms = await this.rooms.find({ order: { createdAt: 'DESC' } });
+    } else {
+      const ctx = await this.staff.contextOf(actor.id);
+      const ids = new Set(ctx.classIds);
+      // 兼容早期数据：teacherId 直接指向本人的班级
+      const legacy = await this.rooms.find({ where: { teacherId: actor.id } });
+      legacy.forEach((r) => ids.add(r.id));
+
+      rooms =
+        ids.size === 0
+          ? []
+          : await this.rooms.find({ where: { id: In([...ids]) }, order: { createdAt: 'DESC' } });
+    }
 
     return Promise.all(
       rooms.map(async (room) => ({
@@ -285,17 +288,23 @@ export class ClassesService {
     return rows.map((r) => r.classId);
   }
 
-  /** 是否可管理该班（班级创建者或管理员） */
+  /** 是否可管理该班：班级管理员（可多名/兼任）、该年级年级管理员、本校学校管理员、平台管理员 */
   async canManage(actor: AuthUser, classId: string): Promise<boolean> {
     if (actor.role === UserRole.ADMIN) return true;
-    if (actor.role !== UserRole.TEACHER) return false;
+
     const room = await this.rooms.findOne({ where: { id: classId } });
-    return Boolean(room && room.teacherId === actor.id);
+    if (!room) return false;
+
+    if (await this.staff.isClassAdmin(actor.id, room.id)) return true;
+    if (room.gradeId && (await this.staff.isGradeAdmin(actor.id, room.gradeId))) return true;
+    if (await this.staff.isSchoolAdmin(actor.id, room.schoolId)) return true;
+    // 兼容早期数据：teacherId 直接指向本人
+    return room.teacherId === actor.id;
   }
 
   async assertManager(actor: AuthUser, room: ClassRoom): Promise<void> {
     const ok = await this.canManage(actor, room.id);
-    if (!ok) throw new ForbiddenException('只有班级创建教师可以管理该班级');
+    if (!ok) throw new ForbiddenException('只有该班的班级管理员可以管理该班级');
   }
 
   /** 审核通过后把学生档案绑定到班级（学校/年级/班级名同步，兼容旧逻辑） */
