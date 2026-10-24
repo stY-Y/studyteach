@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue';
-import { QuestionType } from '@teachstudy/shared';
+import { QuestionType, Subject } from '@teachstudy/shared';
 import {
   homeworkApi,
   type Homework,
@@ -9,11 +9,13 @@ import {
 } from '../../api/homework';
 import { questionsApi, type BankQuestion } from '../../api/questions';
 import {
+  ensureSubjectForStage,
   gradeLabel,
   optionLetter,
   questionTypeLabel,
-  SUBJECT_OPTIONS,
+  stageOfGrade,
   subjectLabel,
+  subjectOptionsForStage,
 } from '../../config/labels';
 
 const props = defineProps<{
@@ -40,6 +42,8 @@ const form = reactive({ title: '', description: '', dueAt: '' });
 const draftItems = ref<Array<{ input: HomeworkQuestionInput; label: string }>>([]);
 /** 题库三级筛选：年级 → 科目 → 章节 */
 const bankQuery = reactive({ grade: 8, subject: '', chapter: '' });
+/** 选题库学科随年级收敛：1-6 年级只开语数外 */
+const bankSubjects = computed(() => subjectOptionsForStage(stageOfGrade(bankQuery.grade)));
 const bankChapters = ref<Array<{ chapter: string; count: number }>>([]);
 const bankList = ref<BankQuestion[]>([]);
 const bankLoading = ref(false);
@@ -284,6 +288,19 @@ watch(
 
 // 年级/科目变化时刷新章节列表
 watch(
+  () => bankQuery.grade,
+  () => {
+    // 年级跨学段（如六年级 → 七年级）时先收敛学科，别让小学挂着物理
+    if (bankQuery.subject) {
+      bankQuery.subject = ensureSubjectForStage(
+        bankQuery.subject as Subject,
+        stageOfGrade(bankQuery.grade),
+      );
+    }
+  },
+);
+
+watch(
   () => [bankQuery.grade, bankQuery.subject],
   () => {
     bankQuery.chapter = '';
@@ -452,7 +469,7 @@ onMounted(() => {
             </select>
             <select v-model="bankQuery.subject" class="input">
               <option value="">全部学科</option>
-              <option v-for="s in SUBJECT_OPTIONS" :key="s.value" :value="s.value">{{ s.label }}</option>
+              <option v-for="s in bankSubjects" :key="s.value" :value="s.value">{{ s.label }}</option>
             </select>
             <select v-model="bankQuery.chapter" class="input">
               <option value="">全部章节</option>

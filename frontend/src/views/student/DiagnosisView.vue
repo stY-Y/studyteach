@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { StudyStage, Subject } from '@teachstudy/shared';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import {
   diagnosisApi,
@@ -14,11 +14,12 @@ import { usersApi } from '../../api/users';
 import DiagnosisResult from '../../components/diagnosis/DiagnosisResult.vue';
 import QuizRunner from '../../components/diagnosis/QuizRunner.vue';
 import {
+  ensureSubjectForStage,
   inferStageFromGrade,
   stageLabel,
   STAGE_OPTIONS,
   subjectLabel,
-  SUBJECT_OPTIONS,
+  subjectOptionsForStage,
 } from '../../config/labels';
 
 const router = useRouter();
@@ -28,6 +29,11 @@ const step = ref<Step>('setup');
 
 const stage = ref<StudyStage>(StudyStage.JUNIOR);
 const subject = ref<Subject>(Subject.MATH);
+/** 学科随学段收敛：小学只开语数外，初中/高中九科 */
+const subjectOptions = computed(() => subjectOptionsForStage(stage.value));
+watch(stage, (next) => {
+  subject.value = ensureSubjectForStage(subject.value, next);
+});
 /** 学段是否来自档案自动推断（用于界面提示） */
 const stageSource = ref('');
 const starting = ref(false);
@@ -171,7 +177,7 @@ onMounted(() => {
         <h2 class="section-title">选择学科</h2>
         <div class="subjects">
           <button
-            v-for="item in SUBJECT_OPTIONS"
+            v-for="item in subjectOptions"
             :key="item.value"
             type="button"
             class="subject"

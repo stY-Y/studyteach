@@ -784,6 +784,22 @@ teachstudy/
 - **实测**：六角色看板均返回正确数据（学校管理员 12 年级、班主任 1 班 2 通知、学生 3 报表）；升级 2 名学生升到九年级、退班成功、最高年级拒绝、班主任 403；演示账号已恢复
   - 日活统计**待实测**：本机 `node_modules` 被破坏（缺 reflect-metadata / tslib 等），后端暂无法启动验证；`npm install` 恢复后需登录一次再看 `/dashboard/overview` 的 `activity`
 
+### 40. 课程范围收敛：小学只有语数外（全站生效）
+- **规则**：小学（1-6 年级 / `StudyStage.PRIMARY_HIGH`）只开**语文、数学、英语**三门课；初中、高中才是语数英 + 理化生政史地九科
+- **前端**（`config/labels.ts` 新增两个通用函数）
+  - `subjectOptionsForStage(stage?)`：学段为空时返回全部学科（浏览类场景不做限制）
+  - `ensureSubjectForStage(current, stage?)`：学段切换后把非法学科收回到该学段第一个可选项
+  - `stageOfGrade(grade)`：年级数字 → 学段
+  - 接入页面：知识诊断、智能批改、我的学情、智能组卷、题库管理、新增知识点表单、布置作业（`HomeworkView`）、班级作业面板（`HomeworkPanel`）
+  - 典型交互：初中选「物理」→ 切到「小学」，学科自动落回「语文」，列表只剩语数外，不会出现「小学 · 物理」这种查不到题的组合
+  - 我的学情按档案年级推学段（读不到档案则不限制，避免把可选项误藏）
+- **后端兜底**（新增 `common/curriculum.ts`）
+  - `primaryCurriculumViolation(subject, stage, grade)`：小学学段或 1-6 年级 + 非语数外 → 返回中文原因
+  - `QuestionsService.create/update`、`KnowledgeService.create/update` 落库前校验，越界返回 400「小学阶段（1-6 年级）只有语文、数学、英语三门课」
+  - 目的：防止绕过界面直接调接口写入「一年级 + 物理」这类脏数据
+- **数据核查**：种子题库与知识点树里小学段只有 chinese / math / english（物理、化学等均为初中及以上），无需清洗
+- **验证**：`vue-tsc` 0 错误；预览站实测「选小学 → 学科仅语文/数学/英语」「选物理后切小学 → 自动落回语文」；`primaryCurriculumViolation` 七种组合全部符合预期
+
 ### 7. 需求对齐的关键机制
 | 需求 | 落地位置 |
 | --- | --- |

@@ -17,12 +17,13 @@ import {
 import {
   DIFFICULTY_LABELS,
   difficultyLabel,
+  ensureSubjectForStage,
   gradeLabel,
   inferStageFromGrade,
   QUESTION_TYPE_LABELS,
   questionTypeLabel,
   subjectLabel,
-  SUBJECT_OPTIONS,
+  subjectOptionsForStage,
 } from '../../config/labels';
 
 
@@ -36,6 +37,8 @@ const chapters = ref<ChapterItem[]>([]);
 const stage = computed(
   () => inferStageFromGrade(gradeLabel(grade.value)) ?? StudyStage.JUNIOR,
 );
+/** 学科随年级收敛：1-6 年级只有语数外 */
+const subjectOptions = computed(() => subjectOptionsForStage(stage.value));
 const type = ref<QuestionType | undefined>(undefined);
 const difficulty = ref<DifficultyLevel | undefined>(undefined);
 
@@ -137,6 +140,8 @@ async function loadChapters(): Promise<void> {
 
 /** 切年级会换学段/科目内容，章节与分页一起重置 */
 function onGradeChange(): void {
+  // 年级跨学段时（如六年级 → 七年级）先收敛学科，小学没有物理/化学
+  subject.value = ensureSubjectForStage(subject.value, stage.value);
   chapter.value = undefined;
   page.value = 1;
   formKp.value = [];
@@ -371,7 +376,7 @@ onMounted(() => {
         <label class="filter-item">
           <span class="filter-label">科目</span>
           <select v-model="subject" class="input" @change="onSubjectChange">
-            <option v-for="s in SUBJECT_OPTIONS" :key="s.value" :value="s.value">{{ s.label }}</option>
+            <option v-for="s in subjectOptions" :key="s.value" :value="s.value">{{ s.label }}</option>
           </select>
         </label>
       </div>

@@ -86,14 +86,34 @@ export const SUBJECTS_BY_STAGE: Record<StudyStage, Subject[]> = {
   [StudyStage.SENIOR]: SECONDARY_SUBJECTS,
 };
 
-/** 当前学段可选的学科（带标签，顺序即界面顺序） */
+/** 当前学段可选的学科（带标签，顺序即界面顺序）；未指定学段时返回全部学科 */
 export function subjectOptionsForStage(
-  stage: StudyStage,
+  stage?: StudyStage | null,
 ): Array<{ value: Subject; label: string }> {
-  return (SUBJECTS_BY_STAGE[stage] ?? []).map((value) => ({
+  const list = stage ? SUBJECTS_BY_STAGE[stage] : undefined;
+  if (!list) return SUBJECT_OPTIONS;
+  return list.map((value) => ({
     value,
     label: SUBJECT_LABELS[value] ?? value,
   }));
+}
+
+/**
+ * 学段切换后收敛学科：小学只有语数外，原来选的物理/化学等要落回第一个可选学科。
+ * 避免出现「小学 + 物理」这种查不到任何题目的组合。
+ */
+export function ensureSubjectForStage(current: Subject, stage?: StudyStage | null): Subject {
+  const allowed = stage ? SUBJECTS_BY_STAGE[stage] : undefined;
+  if (!allowed?.length) return current;
+  return allowed.includes(current) ? current : allowed[0];
+}
+
+/** 由年级数字（1-12）推学段：1-6 小学、7-9 初中、10-12 高中 */
+export function stageOfGrade(grade?: number | null): StudyStage {
+  if (!grade) return StudyStage.JUNIOR;
+  if (grade <= 6) return StudyStage.PRIMARY_HIGH;
+  if (grade <= 9) return StudyStage.JUNIOR;
+  return StudyStage.SENIOR;
 }
 
 /** 从档案年级文本大胆推断年级数字（如「八年级」「初二」「高一年级」） */

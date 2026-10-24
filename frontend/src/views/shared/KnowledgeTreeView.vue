@@ -3,7 +3,13 @@ import { StudyStage, Subject } from '@teachstudy/shared';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { knowledgeApi, type KnowledgeNode } from '../../api/knowledge';
-import { stageLabel, STAGE_OPTIONS, SUBJECT_OPTIONS } from '../../config/labels';
+import {
+  ensureSubjectForStage,
+  stageLabel,
+  STAGE_OPTIONS,
+  SUBJECT_OPTIONS,
+  subjectOptionsForStage,
+} from '../../config/labels';
 
 const router = useRouter();
 
@@ -42,6 +48,15 @@ const form = ref({
   parentId: '',
   description: '',
 });
+
+/** 新增时的学科候选：选了小学学段就只有语数外；未选学段不限 */
+const formSubjects = computed(() => subjectOptionsForStage(form.value.stage || null));
+watch(
+  () => form.value.stage,
+  (next) => {
+    form.value.subject = ensureSubjectForStage(form.value.subject, next || null);
+  },
+);
 
 async function load(): Promise<void> {
   loading.value = true;
@@ -132,7 +147,7 @@ onMounted(load);
         <div class="field">
           <label class="field-label">学科</label>
           <select v-model="form.subject" class="input">
-            <option v-for="s in SUBJECT_OPTIONS" :key="s.value" :value="s.value">{{ s.label }}</option>
+            <option v-for="s in formSubjects" :key="s.value" :value="s.value">{{ s.label }}</option>
           </select>
         </div>
         <div class="field">

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import {
@@ -7,8 +7,19 @@ import {
   StudyStage,
   Subject,
 } from '@teachstudy/shared';
+import { primaryCurriculumViolation } from '../../common/curriculum';
 import { Question } from './entities/question.entity';
 import { CreateQuestionDto, UpdateQuestionDto } from './dto/question.dto';
+
+/** 小学只开语数外：写入题库前先卡住越界的「学科 + 学段/年级」组合 */
+function assertPrimaryCurriculum(
+  subject: Subject,
+  stage?: StudyStage | null,
+  grade?: number | null,
+): void {
+  const violation = primaryCurriculumViolation(subject, stage, grade);
+  if (violation) throw new BadRequestException(violation);
+}
 
 export interface QuestionQuery {
   subject?: Subject;
@@ -94,11 +105,18 @@ export class QuestionsService {
     return this.repo.findBy({ id: In(ids) });
   }
 
-  create(dto: CreateQuestionDto): Promise<Question> {
+  async create(dto: CreateQuestionDto): Promise<Question> {
+    assertPrimaryCurriculum(dto.subject, dto.stage, dto.grade);
     return this.repo.save(this.repo.create(dto));
   }
 
   async update(id: string, dto: UpdateQuestionDto): Promise<Question> {
+    const current = await this.findById(id);
+    assertPrimaryCurriculum(
+      dto.subject ?? current.subject,
+      dto.stage ?? current.stage,
+      dto.grade ?? current.grade,
+    );
     await this.repo.update(id, dto);
     return this.findById(id);
   }

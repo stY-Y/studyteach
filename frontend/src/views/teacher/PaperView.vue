@@ -7,12 +7,13 @@ import { paperApi, type PaperDetail, type PaperItem } from '../../api/paper';
 import {
   DIFFICULTY_LABELS,
   difficultyLabel,
+  ensureSubjectForStage,
   optionLetter,
   questionTypeLabel,
   stageLabel,
   STAGE_OPTIONS,
   subjectLabel,
-  SUBJECT_OPTIONS,
+  subjectOptionsForStage,
 } from '../../config/labels';
 import { formatTime } from '../../utils/format';
 
@@ -21,6 +22,8 @@ const router = useRouter();
 const title = ref('');
 const subject = ref<Subject>(Subject.MATH);
 const stage = ref<StudyStage>(StudyStage.JUNIOR);
+/** 学科随学段收敛：小学只开语数外 */
+const subjectOptions = computed(() => subjectOptionsForStage(stage.value));
 const difficulty = ref<DifficultyLevel>(DifficultyLevel.MEDIUM);
 const count = ref(10);
 const selectedKp = ref<string[]>([]);
@@ -112,6 +115,11 @@ function goHome(): void {
   void router.push({ name: 'home' });
 }
 
+watch(stage, (next) => {
+  // 先收敛学科（小学没有物理/化学等），避免带着非法学科去查知识点
+  subject.value = ensureSubjectForStage(subject.value, next);
+});
+
 watch([subject, stage], () => {
   void loadKps();
 });
@@ -156,7 +164,7 @@ onMounted(() => {
       <h2 class="section-title note">学科</h2>
       <div class="chips">
         <button
-          v-for="s in SUBJECT_OPTIONS"
+          v-for="s in subjectOptions"
           :key="s.value"
           type="button"
           class="chip"

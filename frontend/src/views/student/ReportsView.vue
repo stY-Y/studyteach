@@ -1,14 +1,24 @@
 <script setup lang="ts">
 import { Subject } from '@teachstudy/shared';
-import { computed, onMounted, ref } from 'vue';
+import { StudyStage } from '@teachstudy/shared';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { buildNameMap, knowledgeApi } from '../../api/knowledge';
 import { reportsApi, type StudyReportItem } from '../../api/reports';
-import { subjectLabel, SUBJECT_OPTIONS } from '../../config/labels';
+import { usersApi } from '../../api/users';
+import {
+  ensureSubjectForStage,
+  inferStageFromGrade,
+  subjectLabel,
+  subjectOptionsForStage,
+} from '../../config/labels';
 
 const router = useRouter();
 
 const subject = ref<Subject>(Subject.MATH);
+/** 学段来自档案年级；拿不到时学科不限（小学只有语数外） */
+const stage = ref<StudyStage | null>(null);
+const subjectOptions = computed(() => subjectOptionsForStage(stage.value));
 const generating = ref(false);
 const error = ref('');
 
@@ -112,6 +122,21 @@ function goHome(): void {
 onMounted(() => {
   void loadNameMap();
   void loadHistory();
+  void loadStage();
+});
+
+/** 按档案年级定学段：小学生只该看到语数外三门 */
+async function loadStage(): Promise<void> {
+  try {
+    const me = await usersApi.me();
+    stage.value = inferStageFromGrade(me.studentProfile?.grade ?? '');
+  } catch {
+    stage.value = null; // 读不到档案就不限制学科
+  }
+}
+
+watch(stage, (next) => {
+  subject.value = ensureSubjectForStage(subject.value, next);
 });
 </script>
 
@@ -128,7 +153,7 @@ onMounted(() => {
       <h2 class="section-title chips-title">选择学科</h2>
       <div class="chips">
         <button
-          v-for="item in SUBJECT_OPTIONS"
+          v-for="item in subjectOptions"
           :key="item.value"
           type="button"
           class="chip"

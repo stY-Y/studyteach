@@ -7,13 +7,14 @@ import { questionsApi, type BankQuestion } from '../../api/questions';
 import { usersApi } from '../../api/users';
 import {
   difficultyLabel,
+  ensureSubjectForStage,
   inferStageFromGrade,
   optionLetter,
   questionTypeLabel,
   stageLabel,
   STAGE_OPTIONS,
   subjectLabel,
-  SUBJECT_OPTIONS,
+  subjectOptionsForStage,
 } from '../../config/labels';
 
 const router = useRouter();
@@ -25,6 +26,15 @@ const step = ref<Step>('pick');
 const stage = ref<StudyStage>(StudyStage.JUNIOR);
 const subject = ref<Subject>(Subject.MATH);
 const stageSource = ref('');
+/** 学科随学段收敛：小学只开语数外 */
+const subjectOptions = computed(() => subjectOptionsForStage(stage.value));
+
+/** 切换学段：先把学科收敛到该学段可选范围，再重新检索 */
+function pickStage(next: StudyStage): void {
+  stage.value = next;
+  subject.value = ensureSubjectForStage(subject.value, next);
+  resetFilters();
+}
 
 /* ---------- 题目列表 ---------- */
 const questions = ref<BankQuestion[]>([]);
@@ -235,6 +245,7 @@ async function loadProfileStage(): Promise<void> {
     const inferred = inferStageFromGrade(grade);
     if (inferred) {
       stage.value = inferred;
+      subject.value = ensureSubjectForStage(subject.value, inferred);
       stageSource.value = `已按你的档案年级「${grade}」自动选择，可手动修改`;
     }
   } catch {
@@ -270,7 +281,7 @@ onMounted(() => {
             type="button"
             class="chip"
             :class="{ active: stage === s.value }"
-            @click="stage = s.value; resetFilters()"
+            @click="pickStage(s.value)"
           >
             {{ s.label }}
           </button>
@@ -282,7 +293,7 @@ onMounted(() => {
         <h2 class="section-title">选择学科</h2>
         <div class="chips">
           <button
-            v-for="item in SUBJECT_OPTIONS"
+            v-for="item in subjectOptions"
             :key="item.value"
             type="button"
             class="chip"

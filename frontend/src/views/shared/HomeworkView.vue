@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
-import { QuestionType, UserRole } from '@teachstudy/shared';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { QuestionType, StudyStage, Subject, UserRole } from '@teachstudy/shared';
 import { classesApi, type ClassWithCounts } from '../../api/classes';
 import {
   homeworkApi,
@@ -10,11 +10,12 @@ import {
 } from '../../api/homework';
 import { questionsApi, type BankQuestion } from '../../api/questions';
 import {
+  ensureSubjectForStage,
   optionLetter,
   questionTypeLabel,
-  SUBJECT_OPTIONS,
   STAGE_OPTIONS,
   subjectLabel,
+  subjectOptionsForStage,
 } from '../../config/labels';
 import { useAuthStore } from '../../stores/auth';
 
@@ -40,6 +41,21 @@ const showForm = ref(false);
 const form = reactive({ title: '', description: '', dueAt: '' });
 const draftItems = ref<Array<{ input: HomeworkQuestionInput; label: string }>>([]);
 const bankQuery = reactive({ subject: '', stage: '' });
+/** 选题库的学科候选：选了「小学」就只给语数外，未选学段不限 */
+const bankSubjects = computed(() =>
+  subjectOptionsForStage((bankQuery.stage || null) as StudyStage | null),
+);
+watch(
+  () => bankQuery.stage,
+  (next) => {
+    if (!bankQuery.subject) return; // 选了「全部学科」就不动
+    const fixed = ensureSubjectForStage(
+      bankQuery.subject as Subject,
+      (next || null) as StudyStage | null,
+    );
+    bankQuery.subject = fixed;
+  },
+);
 const bankList = ref<BankQuestion[]>([]);
 const bankLoading = ref(false);
 const custom = reactive({
@@ -444,7 +460,7 @@ onMounted(() => {
             </select>
             <select v-model="bankQuery.subject" class="input">
               <option value="">全部学科</option>
-              <option v-for="s in SUBJECT_OPTIONS" :key="s.value" :value="s.value">{{ s.label }}</option>
+              <option v-for="s in bankSubjects" :key="s.value" :value="s.value">{{ s.label }}</option>
             </select>
             <button class="btn" type="button" :disabled="bankLoading" @click="searchBank">
               {{ bankLoading ? '检索中…' : '检索' }}

@@ -1,7 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Like, Repository } from 'typeorm';
 import { StudyStage, Subject } from '@teachstudy/shared';
+import { primaryCurriculumViolation } from '../../common/curriculum';
 import { KnowledgePoint } from './entities/knowledge-point.entity';
 import { CreateKnowledgePointDto, UpdateKnowledgePointDto } from './dto/knowledge.dto';
 
@@ -74,6 +75,7 @@ export class KnowledgeService {
    * 同一「学科+学段」下序号递增，冲突时继续向后找。
    */
   async create(dto: CreateKnowledgePointDto): Promise<KnowledgePoint> {
+    this.assertPrimaryCurriculum(dto.subject, dto.stage);
     const manual = dto.code?.trim();
     const code = manual || (await this.generateCode(dto.subject, dto.stage));
     return this.repo.save(
@@ -104,8 +106,16 @@ export class KnowledgeService {
   }
 
   async update(id: string, dto: UpdateKnowledgePointDto): Promise<KnowledgePoint> {
+    const current = await this.findById(id);
+    this.assertPrimaryCurriculum(dto.subject ?? current.subject, dto.stage ?? current.stage);
     await this.repo.update(id, dto);
     return this.findById(id);
+  }
+
+  /** 小学只开语数外：越界的「学科 + 学段」组合直接拒绝 */
+  private assertPrimaryCurriculum(subject: Subject, stage?: StudyStage | null): void {
+    const violation = primaryCurriculumViolation(subject, stage);
+    if (violation) throw new BadRequestException(violation);
   }
 
   async remove(id: string): Promise<void> {
