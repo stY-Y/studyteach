@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#d97706" />
+    <meta name="theme-color" content="#c97416" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="description" content="青禾 · 乡村公益助学平台 · 纯公益 · 全免费 · 无广告" />
     <title>青禾</title>
@@ -12,38 +12,34 @@
        * 低版本浏览器兜底（ES5 写法，保证 IE11 也能执行）：
        * 校园里仍有 Windows 7 + IE11 / 老版浏览器的电脑，Vue 3 无法运行，
        * 直接白屏会让人误以为"网站坏了"，这里给出明确的中文升级提示。
-       */
-      /*
-       * 低版本浏览器兜底（ES5 写法，保证 IE11 也能执行）：
-       * 校园里仍有 Windows 7 + IE11 / 老版浏览器的电脑，Vue 3 无法运行，
-       * 直接白屏会让人误以为"网站坏了"，这里给出明确的中文升级提示。
        *
-       * 注意：这里**刻意不用** new Function 探测 ES2015 语法。
-       * 在设置了严格内容安全策略（CSP 不带 unsafe-eval）的环境里，
-       * new Function 会被直接拦截并抛错，导致本来能正常运行的浏览器
-       * 被误判成"版本过低"。改用「能力存在性判断 + nomodule」两条稳妥路径：
-       *   1. Promise / fetch / CSS.supports 缺失 → 提示
-       *   2. 浏览器不认识 type="module"（IE11 等）→ nomodule 脚本里提示
+       * 注意两点：
+       * 1) 刻意不用 new Function 探测语法 —— 严格 CSP（无 unsafe-eval）下会被拦截抛错，
+       *    反而把能用的浏览器误判成"版本过低"。
+       * 2) 兜底文案写成 body 里的静态节点，绝不在脚本里拼含 head/script 标签的字符串 ——
+       *    构建工具注入 script 标签时会匹配这些字符串，把内联脚本截断。
        */
       (function () {
-        function showUnsupported() {
-          window.__QINGHE_UNSUPPORTED__ = true;
-          if (document.documentElement.getAttribute('data-unsupported')) return;
-          document.documentElement.setAttribute('data-unsupported', '1');
-          document.documentElement.innerHTML =
-            '<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">' +
-            '<title>浏览器版本过低 · 青禾</title></head>' +
-            '<body style="margin:0;background:#faf4e9;color:#3d3327;font-family:system-ui,-apple-system,\'Microsoft YaHei\',sans-serif;">' +
-            '<div style="max-width:560px;margin:12vh auto;padding:24px;background:#fff;border:1px solid #e8dcc6;border-radius:12px;">' +
-            '<h1 style="font-size:20px;margin:0 0 12px;">浏览器版本过低</h1>' +
-            '<p style="line-height:1.75;font-size:15px;margin:0 0 10px;">青禾需要较新的浏览器才能正常使用，请升级后再打开：</p>' +
-            '<ul style="line-height:1.9;font-size:15px;margin:0;padding-left:20px;">' +
-            '<li>Windows 10 / 11：使用最新版 Edge 或 Chrome</li>' +
-            '<li>Windows 7：使用 Chrome 109 或 Edge 109（IE 浏览器不支持）</li>' +
-            '<li>手机：使用系统浏览器或微信内置浏览器</li>' +
-            '</ul></div></body>';
+        function reveal() {
+          var block = document.getElementById('unsupported');
+          var app = document.getElementById('app');
+          if (!block || block.getAttribute('data-shown')) return;
+          block.setAttribute('data-shown', '1');
+          document.title = '浏览器版本过低 · 青禾';
+          if (app) app.style.display = 'none';
+          block.style.display = 'block';
         }
-        window.__QINGHE_SHOW_UNSUPPORTED__ = showUnsupported;
+
+        function mark() {
+          window.__QINGHE_UNSUPPORTED__ = true;
+          if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', reveal);
+          } else {
+            reveal();
+          }
+        }
+
+        window.__QINGHE_SHOW_UNSUPPORTED__ = mark;
 
         if (
           typeof Promise === 'undefined' ||
@@ -51,17 +47,63 @@
           !window.CSS ||
           !window.CSS.supports
         ) {
-          showUnsupported();
+          mark();
         }
       })();
     </script>
     <script nomodule>
-      // 能执行到这里，说明浏览器连 <script type="module"> 都不认识（IE11 一类）
+      // 能执行到这里，说明浏览器连 type="module" 都不认识（IE11 一类）
       if (window.__QINGHE_SHOW_UNSUPPORTED__) window.__QINGHE_SHOW_UNSUPPORTED__();
     </script>
   </head>
   <body>
     <div id="app"></div>
+
+    <div
+      id="unsupported"
+      style="
+        display: none;
+        min-height: 100vh;
+        background: #f6f1e5;
+        color: #3d3327;
+        font-family: system-ui, -apple-system, 'Microsoft YaHei', sans-serif;
+      "
+    >
+      <div
+        style="
+          max-width: 560px;
+          margin: 12vh auto;
+          padding: 26px 28px;
+          background: #fffdf7;
+          border: 1px solid #e6dcc8;
+          border-radius: 14px;
+          box-shadow: 0 1px 2px rgba(120, 90, 50, 0.06);
+        "
+      >
+        <h1
+          style="
+            margin: 0 0 8px;
+            font-size: 21px;
+            font-family: 'Kaiti SC', 'KaiTi', 'STKaiti', serif;
+            color: #3f7d3a;
+          "
+        >
+          浏览器版本过低
+        </h1>
+        <p style="line-height: 1.8; font-size: 15px; margin: 0 0 12px">
+          青禾需要较新的浏览器才能正常使用，请升级后再打开：
+        </p>
+        <ul style="line-height: 1.95; font-size: 15px; margin: 0; padding-left: 20px">
+          <li>Windows 10 / 11：使用最新版 Edge 或 Chrome</li>
+          <li>Windows 7：使用 Chrome 109 或 Edge 109（不支持 IE）</li>
+          <li>手机：使用系统浏览器或微信内置浏览器</li>
+        </ul>
+        <p style="margin: 16px 0 0; font-size: 13px; color: #8a7d68">
+          升级后刷新本页即可，数据不会丢失。
+        </p>
+      </div>
+    </div>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
