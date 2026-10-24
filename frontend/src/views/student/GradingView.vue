@@ -43,6 +43,42 @@ const answerError = ref('');
 /* ---------- 批改结果 ---------- */
 const result = ref<GradeResult | null>(null);
 
+/* ---------- 逐层揭示：每个关键点当前展开到第几层 ---------- */
+const opened = ref<number[]>([]);
+const finalOpened = ref(false);
+
+/** 关键点里的提示都看完了，才允许摊底牌 */
+const allRevealed = computed(() => {
+  const kps = result.value?.keyPoints ?? [];
+  if (!kps.length) return false;
+  return kps.every((kp, i) => (opened.value[i] ?? 1) >= kp.levels.length);
+});
+
+const hasFinal = computed(
+  () => !!result.value && !!(result.value.answer || result.value.analysis),
+);
+
+function levelLabel(kind: string): string {
+  if (kind === 'partial') return '给一点答案';
+  if (kind === 'answer') return '参考答案';
+  if (kind === 'analysis') return '解析';
+  return '点拨';
+}
+
+/** 每次新的批改结果都从第 1 层（点拨）重新开始 */
+function resetReveal(): void {
+  opened.value = (result.value?.keyPoints ?? []).map(() => 1);
+  finalOpened.value = false;
+}
+
+function revealNext(index: number): void {
+  const kp = result.value?.keyPoints?.[index];
+  if (!kp) return;
+  if ((opened.value[index] ?? 1) < kp.levels.length) {
+    opened.value[index] = (opened.value[index] ?? 1) + 1;
+  }
+}
+
 /* ---------- 我的批改记录 ---------- */
 const records = ref<GradingRecord[]>([]);
 const recordsLoading = ref(false);
@@ -147,6 +183,7 @@ async function submitAnswer(): Promise<void> {
   step.value = 'grading';
   try {
     result.value = await gradingApi.grade(current.value.id, answer);
+    resetReveal();
     step.value = 'result';
     void loadRecords();
   } catch (err) {
@@ -218,8 +255,9 @@ onMounted(() => {
       <section class="card">
         <h1 class="page-title">智能批改</h1>
         <p class="text-sm text-soft note">
-          挑一道题来练练手吧。提交后 AI 会帮你批改，告诉你错在哪里、下一步怎么想
-          —— 不直接给答案，让你自己找到它 💡
+          挑一道题来练练手吧。提交后 AI 会批改，告诉你错在哪里、下一步怎么想 💡<br />
+          想不出来没关系：点「还是不会」，就再多给一点——先思路，再一小段答案，
+          一路帮到你做出来，最后才摊完整答案与解析。
         </p>
       </section>
 
@@ -380,16 +418,62 @@ onMounted(() => {
             <p class="block-body">{{ result.errorAnalysis || '本次作答没有发现明显错误。' }}</p>
           </div>
 
-          <div v-if="result.hints?.length" class="block">
-            <p class="block-title">思路点拨</p>
-            <ol class="hints">
-              <li v-for="(h, i) in result.hints" :key="i">{{ h }}</li>
-            </ol>
+          <!-- 逐层脚手架：先点拨，学生要了再给一部分答案，一路递进到最后才是答案与解析 -->
+          <div v-if="result.keyPoints?.length" class="block">
+            <p class="block-title">解题关键点 · 一步步来</p>
+
+            <div v-for="(kp, i) in result.keyPoints" :key="i" class="kp">
+              <p class="kp-title">关键点 {{ i + 1 }} · {{ kp.title }}</p>
+
+              <ul class="levels">
+                <li
+                  v-for="(lv, j) in kp.levels.slice(0, opened[i] ?? 1)"
+                  :key="j"
+                  class="lv"
+                  :class="'lv-' + lv.kind"
+                >
+                  <span class="lv-tag">{{ levelLabel(lv.kind) }}</span>
+                  <span class="lv-text">{{ lv.content }}</span>
+                </li>
+              </ul>
+
+              <button
+                v-if="(opened[i] ?? 1) < kp.levels.length"
+                class="btn btn-sm reveal"
+                type="button"
+                @click="revealNext(i)"
+              >
+                还是不会，再给一点提示（{{ opened[i] ?? 1 }}/{{ kp.levels.length }}）
+              </button>
+              <p v-else class="text-xs text-faint kp-done">这一步的提示都给完啦。</p>
+            </div>
+          </div>
+
+          <div v-if="hasFinal" class="block">
+            <p v-if="!allRevealed" class="text-xs text-faint">
+              把上面每个关键点的提示都看完，就能看完整答案与解析了。
+            </p>
+            <button
+              v-else
+              class="btn btn-sm"
+              type="button"
+              @click="finalOpened = !finalOpened"
+            >
+              {{ finalOpened ? '收起答案与解析' : '看完整答案与解析' }}
+            </button>
+
+            <div v-if="finalOpened" class="final">
+              <p v-if="result.answer" class="block-title">参考答案</p>
+              <p v-if="result.answer" class="block-body">{{ result.answer }}</p>
+              <p v-if="result.analysis" class="block-title">解析</p>
+              <p v-if="result.analysis" class="block-body">{{ result.analysis }}</p>
+            </div>
           </div>
         </div>
 
         <p class="text-xs text-faint note">
-          平台不直接给出完整答案 —— 按点拨的思路再想一步，你一定能自己找到它。
+          提示一层一层给：先自己想，想不出来再点「还是不会」——实在不会再到底，
+          看懂之后请把它遮住重做一遍，那才是真的学会了。
         </p>
       </section>
 
@@ -604,5 +688,93 @@ onMounted(() => {
   font-size: 14px;
   line-height: 1.8;
   color: var(--c-text);
+}
+
+/* ---------- 逐层揭示 ---------- */
+.kp {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: var(--c-surface-warm);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+}
+
+.kp-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--c-text-soft);
+  margin-bottom: 6px;
+}
+
+.levels {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lv {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.lv-tag {
+  flex: none;
+  padding: 1px 6px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--c-text-soft);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border-strong);
+  border-radius: 6px;
+}
+
+.lv-text {
+  flex: 1;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* 给一部分答案时换个颜色，学生一眼知道「这是答案，不是思路」 */
+.lv-partial .lv-tag {
+  color: var(--c-warning);
+  background: var(--c-warning-soft);
+  border-color: var(--c-warning-border);
+}
+
+.lv-answer .lv-tag,
+.lv-analysis .lv-tag {
+  color: var(--c-brand);
+  background: var(--c-brand-soft);
+  border-color: var(--c-success-border);
+}
+
+.reveal {
+  margin-top: 8px;
+}
+
+.kp-done {
+  margin-top: 8px;
+}
+
+.final {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: var(--c-brand-soft);
+  border: 1px solid var(--c-success-border);
+  border-radius: var(--radius-sm);
+}
+
+.final .block-title {
+  margin-top: 8px;
+}
+
+.final .block-title:first-child {
+  margin-top: 0;
 }
 </style>

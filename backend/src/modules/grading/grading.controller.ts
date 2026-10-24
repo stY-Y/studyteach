@@ -13,7 +13,7 @@ export class GradingController {
 
   @Post()
   @Roles(UserRole.STUDENT)
-  @ApiOperation({ summary: '提交作答批改（返回错因分析与启发点拨）' })
+  @ApiOperation({ summary: '提交作答批改（错因分析 + 关键点逐层提示，要到底才给答案与解析）' })
   grade(@CurrentUser() user: AuthUser, @Body() dto: GradeQuestionDto) {
     return this.gradingService.grade(user.id, dto);
   }

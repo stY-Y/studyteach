@@ -15,7 +15,12 @@ export class GradingService {
     private readonly ai: AiService,
   ) {}
 
-  /** 自动批改（主客观题），输出错因分析 + 启发式点拨，不返回完整答案 */
+  /**
+   * 自动批改（主客观题）。
+   *
+   * 结果是一套「脚手架」：错因分析 + 若干关键点，每个关键点里的提示逐层递进
+   * （先点拨；学生要了再给一小段答案；还不会再来一句点拨……要到底给完整答案与解析）。
+   */
   async grade(studentId: string, dto: GradeQuestionDto) {
     const question = await this.questionsService.findById(dto.questionId);
 
@@ -38,6 +43,9 @@ export class GradingService {
         score: result.score,
         errorAnalysis: result.errorAnalysis,
         hints: result.hints,
+        keyPoints: result.keyPoints,
+        fullAnswer: result.answer,
+        analysis: result.analysis,
       }),
     );
 
@@ -48,6 +56,9 @@ export class GradingService {
       score: result.score,
       errorAnalysis: result.errorAnalysis,
       hints: result.hints,
+      keyPoints: result.keyPoints,
+      answer: result.answer,
+      analysis: result.analysis,
     };
   }
 

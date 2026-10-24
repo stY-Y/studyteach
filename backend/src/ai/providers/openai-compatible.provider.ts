@@ -13,6 +13,7 @@ import {
   VolunteerResult,
 } from './ai-provider.interface';
 import { normalizeBlueprint } from '../paper-blueprint.util';
+import { normalizeGrade } from '../grading-scaffold.util';
 
 /**
  * OpenAI 兼容大模型提供方（真实免费/低价模型接入）。
@@ -148,12 +149,11 @@ export class OpenAiCompatibleProvider implements AiProvider {
       score?: number;
       errorAnalysis?: string;
       hints?: string[];
+      keyPoints?: unknown;
+      answer?: string;
+      analysis?: string;
     }>(raw);
-    return {
-      score: typeof d.score === 'number' ? d.score : 0,
-      errorAnalysis: d.errorAnalysis ?? '',
-      hints: d.hints ?? [],
-    };
+    return normalizeGrade(d, { answer: input.question.answer });
   }
 
   async generatePaper(input: PaperGenInput): Promise<PaperGenResult> {
@@ -202,10 +202,16 @@ const PROMPTS = {
   ].join('\n'),
 
   GRADE: [
-    '你是智能批改引擎，负责批改主客观题，输出错因分析与启发式思路点拨。',
-    '【教学规则】绝不直接给出完整标准答案，只做启发式点拨，引导学生自主思考。',
+    '你是智能批改引擎，负责批改主客观题，并把解题过程拆成若干「关键点」，每个关键点配一套逐层递进的提示（脚手架）。',
+    '【一句话原则】先给思路，学生要了再给答案；学生每说一次「还不会」，就再多给一步，而不是一次摊完。',
+    '【层级规则】每个关键点的 levels 必须按 hint → partial → hint → partial 交替，至少 4 层：',
+    "  - hint：只点拨思路（提问、指方向、提醒易错点），不得出现答案内容；",
+    "  - partial：只给出这一步的「一小段」结果或关键式子（如答案的前半句、中间结果），严禁一次写完完整答案；",
+    '  相邻两层的措辞必须不同，后面的 hint 要比前面的 hint 更具体（例如从「想想用哪个公式」推进到「注意二次项系数要不要变号」）。',
+    '【完整答案】完整答案放在顶层 answer 字段；完整解析放在 analysis 字段。它们由系统在学生一层层要到底之后才展示，你在 levels 里不要提前剧透完整答案。',
     '只输出 JSON，不要输出其它文字。',
-    'JSON 结构：{"score":0.0到1.0之间的数字,"errorAnalysis":"错因分析","hints":["启发式点拨1","点拨2"]}',
+    'JSON 结构：{"score":0.0到1.0之间的数字,"errorAnalysis":"错因分析","answer":"完整答案","analysis":"完整解析","keyPoints":[{"title":"关键点标题","levels":[{"kind":"hint","content":"……"},{"kind":"partial","content":"……"},{"kind":"hint","content":"……"},{"kind":"partial","content":"……"}]}]}',
+    '要求：keyPoints 2 到 4 个，按解题顺序排列；title 简短（不超过 12 字），如「找准等量关系」「列方程组」；kind 只能是 hint 或 partial。',
   ].join('\n'),
 
   PAPER: [
